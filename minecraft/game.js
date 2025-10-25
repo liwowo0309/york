@@ -22,6 +22,17 @@ const AnimalColors = {
     [AnimalType.CHICKEN]: 0xffffff // White
 };
 
+// Enemy types
+const EnemyType = {
+    ZOMBIE: 'zombie',
+    SKELETON: 'skeleton'
+};
+
+const EnemyColors = {
+    [EnemyType.ZOMBIE]: 0x2d5016, // Dark green (zombie skin)
+    [EnemyType.SKELETON]: 0xe0e0e0 // Light gray (bones)
+};
+
 // Block types
 const BlockType = {
     AIR: 0,
@@ -48,6 +59,7 @@ const ItemType = {
     STICK: 108,
     PLANKS: 109,
     COIN_ITEM: 110,
+    FRIED_CHICKEN_WING: 111,
     FENCE: 7  // Same as BlockType.FENCE
 };
 
@@ -59,7 +71,8 @@ const BlockColors = {
     [BlockType.LEAVES]: 0x228b22,
     [BlockType.COIN]: 0xffd700, // Gold color for coins
     [BlockType.FENCE]: 0x8b6942, // Brown fence
-    [ItemType.PLANKS]: 0xc19a6b
+    [ItemType.PLANKS]: 0xc19a6b,
+    [ItemType.FRIED_CHICKEN_WING]: 0xd2691e // Golden brown fried color
 };
 
 // Crafting recipes
@@ -172,11 +185,15 @@ class Game {
         this.world = {};
         this.blocks = new Map();
         this.animals = [];
+        this.enemies = [];
         this.player = {
             position: new THREE.Vector3(WORLD_SIZE / 2, CHUNK_HEIGHT + 5, WORLD_SIZE / 2),
             velocity: new THREE.Vector3(0, 0, 0),
             rotation: new THREE.Euler(0, 0, 0, 'YXZ'),
-            onGround: false
+            onGround: false,
+            health: 100,
+            maxHealth: 100,
+            healthRegenTimer: 0
         };
         
         // Inventory system
@@ -201,7 +218,7 @@ class Game {
         // Coin collection
         this.coinsCollected = 0;
         this.totalCoins = 0;
-        this.coinBalance = 50; // Start with 50 coins!
+        this.coinBalance = 150; // Start with 150 coins!
         
         // Flying mode
         this.isFlying = false;
@@ -244,6 +261,9 @@ class Game {
         
         // Spawn animals
         this.spawnAnimals();
+        
+        // Spawn enemies
+        this.spawnEnemies();
         
         // Setup controls
         this.setupControls();
@@ -484,6 +504,214 @@ class Game {
         };
     }
     
+    spawnEnemies() {
+        const enemyTypes = [EnemyType.ZOMBIE, EnemyType.SKELETON];
+        const numEnemies = 15; // Spawn 15 enemies
+        
+        for (let i = 0; i < numEnemies; i++) {
+            const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+            // Spawn enemies away from player spawn point
+            let x, z;
+            do {
+                x = Math.random() * WORLD_SIZE;
+                z = Math.random() * WORLD_SIZE;
+            } while (Math.abs(x - WORLD_SIZE / 2) < 10 && Math.abs(z - WORLD_SIZE / 2) < 10);
+            
+            const y = this.findSurfaceHeight(Math.floor(x), Math.floor(z)) + 2;
+            
+            const enemy = this.createEnemy(type, x, y, z);
+            this.enemies.push(enemy);
+            this.scene.add(enemy.mesh);
+        }
+    }
+    
+    createEnemy(type, x, y, z) {
+        const group = new THREE.Group();
+        
+        if (type === EnemyType.ZOMBIE) {
+            // Zombie - humanoid figure with green skin
+            const bodyGeo = new THREE.BoxGeometry(0.6, 1.0, 0.4);
+            const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2d5016 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.5;
+            body.castShadow = true;
+            group.add(body);
+            
+            // Head
+            const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const head = new THREE.Mesh(headGeo, bodyMat);
+            head.position.set(0, 1.25, 0);
+            head.castShadow = true;
+            group.add(head);
+            
+            // Eyes (red glowing)
+            const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.05);
+            const eyeMat = new THREE.MeshLambertMaterial({ 
+                color: 0xff0000,
+                emissive: 0xff0000,
+                emissiveIntensity: 0.5
+            });
+            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye1.position.set(-0.15, 1.3, 0.26);
+            group.add(eye1);
+            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye2.position.set(0.15, 1.3, 0.26);
+            group.add(eye2);
+            
+            // Arms
+            const armGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
+            const armMat = new THREE.MeshLambertMaterial({ color: 0x243d12 });
+            const leftArm = new THREE.Mesh(armGeo, armMat);
+            leftArm.position.set(-0.425, 0.6, 0);
+            leftArm.castShadow = true;
+            group.add(leftArm);
+            const rightArm = new THREE.Mesh(armGeo, armMat);
+            rightArm.position.set(0.425, 0.6, 0);
+            rightArm.castShadow = true;
+            group.add(rightArm);
+            
+            // Legs
+            const legGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
+            const leftLeg = new THREE.Mesh(legGeo, bodyMat);
+            leftLeg.position.set(-0.15, -0.4, 0);
+            leftLeg.castShadow = true;
+            group.add(leftLeg);
+            const rightLeg = new THREE.Mesh(legGeo, bodyMat);
+            rightLeg.position.set(0.15, -0.4, 0);
+            rightLeg.castShadow = true;
+            group.add(rightLeg);
+            
+        } else if (type === EnemyType.SKELETON) {
+            // Skeleton - thin humanoid with bone color
+            const bodyGeo = new THREE.BoxGeometry(0.5, 0.9, 0.3);
+            const bodyMat = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
+            const body = new THREE.Mesh(bodyGeo, bodyMat);
+            body.position.y = 0.45;
+            body.castShadow = true;
+            group.add(body);
+            
+            // Head (skull)
+            const headGeo = new THREE.BoxGeometry(0.45, 0.45, 0.45);
+            const head = new THREE.Mesh(headGeo, bodyMat);
+            head.position.set(0, 1.15, 0);
+            head.castShadow = true;
+            group.add(head);
+            
+            // Eyes (dark sockets)
+            const eyeGeo = new THREE.BoxGeometry(0.12, 0.12, 0.05);
+            const eyeMat = new THREE.MeshLambertMaterial({ color: 0x000000 });
+            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye1.position.set(-0.12, 1.2, 0.23);
+            group.add(eye1);
+            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
+            eye2.position.set(0.12, 1.2, 0.23);
+            group.add(eye2);
+            
+            // Arms (thin)
+            const armGeo = new THREE.BoxGeometry(0.2, 0.7, 0.2);
+            const leftArm = new THREE.Mesh(armGeo, bodyMat);
+            leftArm.position.set(-0.35, 0.5, 0);
+            leftArm.castShadow = true;
+            group.add(leftArm);
+            const rightArm = new THREE.Mesh(armGeo, bodyMat);
+            rightArm.position.set(0.35, 0.5, 0);
+            rightArm.castShadow = true;
+            group.add(rightArm);
+            
+            // Legs (thin)
+            const legGeo = new THREE.BoxGeometry(0.2, 0.7, 0.2);
+            const leftLeg = new THREE.Mesh(legGeo, bodyMat);
+            leftLeg.position.set(-0.12, -0.35, 0);
+            leftLeg.castShadow = true;
+            group.add(leftLeg);
+            const rightLeg = new THREE.Mesh(legGeo, bodyMat);
+            rightLeg.position.set(0.12, -0.35, 0);
+            rightLeg.castShadow = true;
+            group.add(rightLeg);
+        }
+        
+        group.position.set(x, y, z);
+        
+        return {
+            type: type,
+            mesh: group,
+            velocity: new THREE.Vector3(0, 0, 0),
+            health: 50,
+            maxHealth: 50,
+            damage: 10,
+            attackCooldown: 0,
+            isHostile: true
+        };
+    }
+    
+    updateEnemies(deltaTime) {
+        this.enemies.forEach((enemy, index) => {
+            // Chase player AI
+            const distanceToPlayer = enemy.mesh.position.distanceTo(this.player.position);
+            
+            if (distanceToPlayer < 20) { // Aggro range
+                // Move towards player
+                const direction = new THREE.Vector3();
+                direction.subVectors(this.player.position, enemy.mesh.position);
+                direction.y = 0; // Don't move vertically
+                direction.normalize();
+                
+                const speed = 2.5; // Slightly slower than player
+                enemy.velocity.x = direction.x * speed;
+                enemy.velocity.z = direction.z * speed;
+                
+                // Face player
+                const angle = Math.atan2(direction.x, direction.z);
+                enemy.mesh.rotation.y = angle;
+                
+                // Attack player if close enough
+                if (distanceToPlayer < 1.5) {
+                    enemy.attackCooldown -= deltaTime;
+                    if (enemy.attackCooldown <= 0) {
+                        this.player.health -= enemy.damage;
+                        enemy.attackCooldown = 1.0; // Attack once per second
+                        console.log(`${enemy.type} attacked! Player health: ${this.player.health}`);
+                        
+                        if (this.player.health <= 0) {
+                            this.gameOver();
+                        }
+                    }
+                }
+            } else {
+                // Idle - slow random movement
+                enemy.velocity.x *= 0.9;
+                enemy.velocity.z *= 0.9;
+            }
+            
+            // Apply gravity
+            enemy.velocity.y -= GRAVITY * deltaTime;
+            
+            // Update position
+            const newPos = enemy.mesh.position.clone();
+            newPos.add(enemy.velocity.clone().multiplyScalar(deltaTime));
+            
+            // Check ground collision
+            const groundY = this.findSurfaceHeight(Math.floor(newPos.x), Math.floor(newPos.z)) + 1;
+            
+            if (newPos.y <= groundY) {
+                newPos.y = groundY;
+                enemy.velocity.y = 0;
+            }
+            
+            // Keep enemies in bounds
+            if (newPos.x < 2 || newPos.x > WORLD_SIZE - 2) {
+                enemy.velocity.x *= -1;
+                newPos.x = Math.max(2, Math.min(WORLD_SIZE - 2, newPos.x));
+            }
+            if (newPos.z < 2 || newPos.z > WORLD_SIZE - 2) {
+                enemy.velocity.z *= -1;
+                newPos.z = Math.max(2, Math.min(WORLD_SIZE - 2, newPos.z));
+            }
+            
+            enemy.mesh.position.copy(newPos);
+        });
+    }
+    
     updateAnimals(deltaTime) {
         this.animals.forEach(animal => {
             // Simple wandering AI
@@ -564,41 +792,37 @@ class Game {
     }
     
     generateCoins() {
-        const numCoins = Math.floor(WORLD_SIZE * WORLD_SIZE * 0.02); // 2% of world area
+        const numCoins = Math.floor(WORLD_SIZE * WORLD_SIZE * 0.05); // 5% of world area (more coins!)
         this.totalCoins = numCoins;
         
         for (let i = 0; i < numCoins; i++) {
             const x = Math.floor(Math.random() * WORLD_SIZE);
             const z = Math.floor(Math.random() * WORLD_SIZE);
             
-            // Different hiding strategies
+            // Different hiding strategies - more visible coins!
             const strategy = Math.floor(Math.random() * 4);
             
             if (strategy === 0) {
-                // Underground (buried in stone)
-                const y = Math.floor(Math.random() * (CHUNK_HEIGHT - 5)) + 3;
+                // Underground (buried in stone) - less deep
+                const y = Math.floor(Math.random() * 5) + CHUNK_HEIGHT - 3; // Closer to surface
                 if (this.getBlock(x, y, z) === BlockType.STONE) {
                     this.setBlock(x, y, z, BlockType.COIN);
                 }
             } else if (strategy === 1) {
-                // In dirt layers
+                // In dirt layers - very shallow
                 const surface = this.findSurfaceHeight(x, z);
-                const y = Math.max(surface - Math.floor(Math.random() * 3) - 1, 2);
+                const y = Math.max(surface - 1, 2); // Just below surface
                 if (this.getBlock(x, y, z) === BlockType.DIRT) {
                     this.setBlock(x, y, z, BlockType.COIN);
                 }
             } else if (strategy === 2) {
-                // On hilltops or surface
+                // On surface everywhere (not just hills!)
                 const surface = this.findSurfaceHeight(x, z);
-                if (surface > CHUNK_HEIGHT + 2) { // Only on hills
-                    this.setBlock(x, surface, z, BlockType.COIN);
-                }
+                this.setBlock(x, surface, z, BlockType.COIN);
             } else {
-                // Hidden in caves (replace some stone blocks)
-                const y = Math.floor(Math.random() * CHUNK_HEIGHT);
-                if (this.getBlock(x, y, z) === BlockType.STONE) {
-                    this.setBlock(x, y, z, BlockType.COIN);
-                }
+                // On surface as well (doubled surface coins!)
+                const surface = this.findSurfaceHeight(x, z);
+                this.setBlock(x, surface, z, BlockType.COIN);
             }
         }
     }
@@ -893,15 +1117,28 @@ class Game {
     }
     
     checkRecipe() {
-        const grid = this.craftingGrid.map(slot => slot.type);
-        const gridPattern = [
-            [grid[0], grid[1], grid[2]],
-            [grid[3], grid[4], grid[5]],
-            [grid[6], grid[7], grid[8]]
-        ];
+        // Count items in the crafting grid
+        const itemCounts = {};
+        this.craftingGrid.forEach(slot => {
+            if (slot.type !== ItemType.AIR) {
+                itemCounts[slot.type] = (itemCounts[slot.type] || 0) + 1;
+            }
+        });
         
+        // Check each recipe
         for (const recipe of Recipes) {
-            if (this.matchesPattern(gridPattern, recipe.pattern)) {
+            // Count items needed in the recipe
+            const recipeCounts = {};
+            recipe.pattern.forEach(row => {
+                row.forEach(item => {
+                    if (item !== ItemType.AIR) {
+                        recipeCounts[item] = (recipeCounts[item] || 0) + 1;
+                    }
+                });
+            });
+            
+            // Check if the grid matches the recipe (items can be anywhere!)
+            if (this.matchesRecipe(itemCounts, recipeCounts)) {
                 this.showCraftResult(recipe.result);
                 return;
             }
@@ -911,14 +1148,23 @@ class Game {
         this.showCraftResult(null);
     }
     
-    matchesPattern(grid, pattern) {
-        for (let row = 0; row < 3; row++) {
-            for (let col = 0; col < 3; col++) {
-                if (grid[row][col] !== pattern[row][col]) {
-                    return false;
-                }
+    matchesRecipe(gridCounts, recipeCounts) {
+        // Check if grid has exactly the items needed
+        const gridKeys = Object.keys(gridCounts);
+        const recipeKeys = Object.keys(recipeCounts);
+        
+        // Must have same number of different item types
+        if (gridKeys.length !== recipeKeys.length) {
+            return false;
+        }
+        
+        // Check each item type and count
+        for (const itemType in recipeCounts) {
+            if (gridCounts[itemType] !== recipeCounts[itemType]) {
+                return false;
             }
         }
+        
         return true;
     }
     
@@ -1080,6 +1326,8 @@ class Game {
             preview.className = 'item-preview stick';
         } else if (itemType === ItemType.COIN_ITEM) {
             preview.className = 'item-preview coin';
+        } else if (itemType === ItemType.FRIED_CHICKEN_WING) {
+            preview.className = 'item-preview fried-chicken-wing';
         }
         // Blocks
         else if (itemType === ItemType.GRASS) {
@@ -1140,21 +1388,101 @@ class Game {
     }
     
     breakBlock() {
-        // Check if clicking on an animal first
+        // Check if clicking on an enemy first
         this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+        const enemyMeshes = this.enemies.map(e => e.mesh);
+        const enemyHits = this.raycaster.intersectObjects(enemyMeshes, true);
+        
+        if (enemyHits.length > 0 && enemyHits[0].distance <= REACH_DISTANCE) {
+            const hitObject = enemyHits[0].object;
+            let enemyIndex = -1;
+            
+            for (let i = 0; i < this.enemies.length; i++) {
+                if (this.enemies[i].mesh === hitObject || this.enemies[i].mesh === hitObject.parent) {
+                    enemyIndex = i;
+                    break;
+                }
+            }
+            
+            if (enemyIndex !== -1) {
+                const enemy = this.enemies[enemyIndex];
+                const currentItem = this.hotbar[this.selectedSlot];
+                
+                // Calculate damage based on weapon
+                let damage = 5; // Base fist damage
+                if (currentItem.type === ItemType.WOODEN_SWORD) {
+                    damage = 15;
+                } else if (currentItem.type === ItemType.STONE_SWORD) {
+                    damage = 25;
+                } else if (currentItem.type === ItemType.WOODEN_AXE) {
+                    damage = 12;
+                } else if (currentItem.type === ItemType.STONE_AXE) {
+                    damage = 20;
+                }
+                
+                enemy.health -= damage;
+                console.log(`Hit ${enemy.type}! Damage: ${damage}, Health: ${enemy.health}/${enemy.maxHealth}`);
+                
+                if (enemy.health <= 0) {
+                    // Enemy defeated - remove and give rewards
+                    this.scene.remove(enemy.mesh);
+                    this.enemies.splice(enemyIndex, 1);
+                    
+                    // Reward coins
+                    const coinReward = Math.floor(Math.random() * 20) + 15; // 15-35 coins
+                    this.coinBalance += coinReward;
+                    console.log(`Defeated ${enemy.type}! +${coinReward} coins!`);
+                    this.updateCoinDisplay();
+                    
+                    // Respawn a new enemy elsewhere
+                    const enemyTypes = [EnemyType.ZOMBIE, EnemyType.SKELETON];
+                    const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
+                    let x, z;
+                    do {
+                        x = Math.random() * WORLD_SIZE;
+                        z = Math.random() * WORLD_SIZE;
+                    } while (Math.abs(x - WORLD_SIZE / 2) < 10 && Math.abs(z - WORLD_SIZE / 2) < 10);
+                    const y = this.findSurfaceHeight(Math.floor(x), Math.floor(z)) + 2;
+                    
+                    const newEnemy = this.createEnemy(type, x, y, z);
+                    this.enemies.push(newEnemy);
+                    this.scene.add(newEnemy.mesh);
+                }
+                return;
+            }
+        }
+        
+        // Check if clicking on an animal
         const animalMeshes = this.animals.map(a => a.mesh);
-        const animalHits = this.raycaster.intersectObjects(animalMeshes);
+        const animalHits = this.raycaster.intersectObjects(animalMeshes, true); // true = check children
         
         if (animalHits.length > 0 && animalHits[0].distance <= REACH_DISTANCE) {
-            const hitMesh = animalHits[0].object;
-            const animalIndex = this.animals.findIndex(a => a.mesh === hitMesh);
+            const hitObject = animalHits[0].object;
+            // Find which animal was hit by checking parent groups
+            let animalIndex = -1;
+            for (let i = 0; i < this.animals.length; i++) {
+                if (this.animals[i].mesh === hitObject || this.animals[i].mesh === hitObject.parent) {
+                    animalIndex = i;
+                    break;
+                }
+            }
             
             if (animalIndex !== -1) {
                 const animal = this.animals[animalIndex];
-                // Give rewards for interacting with animals
-                const reward = Math.floor(Math.random() * 3) + 2; // 2-4 coins
-                this.coinBalance += reward;
-                console.log(`Fed ${animal.type}! +${reward} coins!`);
+                
+                // Check if it's a chicken - give fried chicken wings!
+                if (animal.type === AnimalType.CHICKEN) {
+                    const wings = Math.floor(Math.random() * 2) + 2; // 2-3 fried chicken wings
+                    this.addToInventory(ItemType.FRIED_CHICKEN_WING, wings);
+                    console.log(`Caught chicken! +${wings} fried chicken wings! 🍗`);
+                    this.updateHotbarUI();
+                    this.updateInventoryUI();
+                } else {
+                    // Give rewards for interacting with other animals
+                    const reward = Math.floor(Math.random() * 6) + 5; // 5-10 coins
+                    this.coinBalance += reward;
+                    console.log(`Fed ${animal.type}! +${reward} coins!`);
+                }
                 
                 // Remove animal and respawn elsewhere
                 this.scene.remove(animal.mesh);
@@ -1183,12 +1511,12 @@ class Game {
             // Check if it's a coin
             if (type === BlockType.COIN) {
                 this.coinsCollected++;
-                this.coinBalance += 10; // Each hidden coin gives 10 coins!
+                this.coinBalance += 20; // Each hidden coin gives 20 coins!
                 this.setBlock(x, y, z, BlockType.AIR);
                 this.updateCoinDisplay();
                 
                 // Play a visual effect or sound here if desired
-                console.log(`Coin collected! +10 coins! ${this.coinsCollected}/${this.totalCoins}`);
+                console.log(`Coin collected! +20 coins! ${this.coinsCollected}/${this.totalCoins}`);
                 return;
             }
             
@@ -1419,6 +1747,12 @@ class Game {
         this.camera.rotation.copy(this.player.rotation);
     }
     
+    gameOver() {
+        alert(`Game Over! You were defeated by enemies. Final coin balance: ${this.coinBalance}`);
+        // Reload the page to restart
+        location.reload();
+    }
+    
     updateUI() {
         const fps = Math.round(1 / this.clock.getDelta());
         document.getElementById('fps').textContent = fps;
@@ -1426,6 +1760,24 @@ class Game {
         const pos = this.player.position;
         document.getElementById('position').textContent = 
             `${Math.round(pos.x)}, ${Math.round(pos.y)}, ${Math.round(pos.z)}`;
+        
+        // Update health bar
+        const healthBar = document.getElementById('health-bar');
+        const healthText = document.getElementById('health-text');
+        if (healthBar && healthText) {
+            const healthPercent = (this.player.health / this.player.maxHealth) * 100;
+            healthBar.style.width = healthPercent + '%';
+            healthText.textContent = `${Math.round(this.player.health)}/${this.player.maxHealth}`;
+            
+            // Change color based on health
+            if (healthPercent > 60) {
+                healthBar.style.backgroundColor = '#44aa44';
+            } else if (healthPercent > 30) {
+                healthBar.style.backgroundColor = '#ffaa00';
+            } else {
+                healthBar.style.backgroundColor = '#ff4444';
+            }
+        }
         
         this.updateCoinDisplay();
     }
@@ -1439,8 +1791,16 @@ class Game {
             this.updatePlayer(deltaTime);
         }
         
-        // Always update animals
+        // Always update animals and enemies
         this.updateAnimals(deltaTime);
+        this.updateEnemies(deltaTime);
+        
+        // Health regeneration (1 HP every 5 seconds)
+        this.player.healthRegenTimer += deltaTime;
+        if (this.player.healthRegenTimer >= 5.0 && this.player.health < this.player.maxHealth) {
+            this.player.health = Math.min(this.player.health + 1, this.player.maxHealth);
+            this.player.healthRegenTimer = 0;
+        }
         
         this.updateUI();
         this.renderer.render(this.scene, this.camera);

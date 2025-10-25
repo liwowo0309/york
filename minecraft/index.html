@@ -15,7 +15,7 @@
             <p>WASD - Move</p>
             <p>SPACE - Jump</p>
             <p>Mouse - Look around</p>
-            <p>Left Click - Break block</p>
+            <p>Left Click - Break block / Attack enemies</p>
             <p>Right Click - Place block</p>
             <p>1-9 - Select hotbar slot</p>
             <p>E - Open crafting menu</p>
@@ -23,6 +23,7 @@
             <p>F - Toggle flying mode</p>
             <p>SHIFT - Fly down (when flying)</p>
             <p>ESC - Release mouse</p>
+            <p style="color: #ff4444; margin-top: 10px;">⚠️ Fight zombies & skeletons! Use swords for more damage!</p>
         </div>
     </div>
 
@@ -76,6 +77,7 @@
         <div class="crafting-container">
             <h2>Crafting</h2>
             <button id="close-crafting">✕</button>
+            <p style="color: #aaffaa; text-align: center; margin: 5px 0; font-size: 14px;">✨ Place items anywhere in the grid to craft!</p>
             
             <div class="crafting-content">
                 <div class="crafting-section">
@@ -104,7 +106,7 @@
                 </div>
                 
                 <div class="crafting-section recipes-section">
-                    <h3>Recipes</h3>
+                    <h3>Recipes (items can go anywhere!)</h3>
                     <div class="recipe-list">
                         <div class="recipe-item">
                             <div class="recipe-ingredients">
@@ -365,6 +367,12 @@
         <p>Position: <span id="position">0, 0, 0</span></p>
         <p class="coin-display">💰 Found: <span id="coin-counter">0/0</span></p>
         <p class="coin-display">💰 Balance: <span id="coin-balance">50</span></p>
+        <div class="health-display">
+            <p>❤️ Health: <span id="health-text">100/100</span></p>
+            <div class="health-bar-container">
+                <div id="health-bar" class="health-bar"></div>
+            </div>
+        </div>
         <p id="fly-indicator" style="display: none;">✈️ Flying Mode</p>
     </div>
 

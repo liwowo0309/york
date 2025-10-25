@@ -36,6 +36,9 @@ A browser-based Minecraft-style game built with Three.js featuring block buildin
 1. **Planks** - Crafted from 1 wood block (makes 4 planks)
 2. **Stick** - Crafted from 2 wood blocks (makes 4 sticks)
 
+#### Food Items
+1. **Fried Chicken Wings** 🍗 - Obtained by clicking on chickens (2-3 per chicken)
+
 #### Wooden Tools
 3. **Wooden Sword** - Planks + Stick
 4. **Wooden Pickaxe** - 3 Planks + 2 Sticks
@@ -57,15 +60,14 @@ A browser-based Minecraft-style game built with Three.js featuring block buildin
 - Shovels are best for dirt/grass
 
 ### Hidden Treasures & Economy
-- **Starting Coins**: You begin with 50 coins! 💰
+- **Starting Coins**: You begin with 150 coins! 💰
 - **Gold Coin Blocks** (💰): Hidden throughout the world
-  - Buried underground in stone layers
-  - Hidden in dirt near the surface
-  - Placed on hilltops
-  - Found in caves
-  - Approximately 80+ gold blocks in the 64×64 world
+  - Many visible on the surface - easy to spot!
+  - Some buried shallow in dirt near the surface
+  - A few hidden just below ground in stone
+  - Approximately 200+ gold blocks in the 64×64 world
   - Glowing gold blocks that stand out
-  - Each gold block gives you **+10 coins** when collected!
+  - Each gold block gives you **+20 coins** when collected!
   - Track found treasures and balance in top-left corner
 
 ### Animals & Wildlife 🐑🐄🐷🐔
@@ -77,9 +79,10 @@ A browser-based Minecraft-style game built with Three.js featuring block buildin
 - **Detailed Models**: Each animal has body, head, legs, and unique features
 - **20 Animals** roaming the world at all times
 - **Smart AI**: Animals wander randomly, occasionally jump, and stay within bounds
-- **Interactive**: Left-click animals to feed them!
-  - Earn **2-4 coins** per interaction
-  - Animal respawns elsewhere after being fed
+- **Interactive**: Left-click animals to interact with them!
+  - 🐔 **Chickens**: Get **2-3 Fried Chicken Wings** 🍗 (collectible food item!)
+  - 🐑🐄🐷 **Other Animals**: Earn **5-10 coins** per interaction
+  - Animal respawns elsewhere after interaction
   - Passive and friendly - they won't hurt you
 - **Always Active**: Animals move even when menus are open
 
