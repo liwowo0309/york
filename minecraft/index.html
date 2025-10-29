@@ -16,14 +16,16 @@
             <p>SPACE - Jump</p>
             <p>Mouse - Look around</p>
             <p>Left Click - Break block / Attack enemies</p>
-            <p>Right Click - Place block</p>
+            <p>Right Click - Place block (works in mid-air!)</p>
             <p>1-9 - Select hotbar slot</p>
             <p>E - Open crafting menu</p>
             <p>Q - Open shop (buy items)</p>
             <p>F - Toggle flying mode</p>
             <p>SHIFT - Fly down (when flying)</p>
             <p>ESC - Release mouse</p>
-            <p style="color: #ff4444; margin-top: 10px;">⚠️ Fight zombies & skeletons! Use swords for more damage!</p>
+            <p style="color: #aaffaa; margin-top: 10px;">✨ Build freely! Place blocks anywhere in the air!</p>
+            <p style="color: #ff4444;">⚠️ Fight zombies & skeletons! Use swords for damage!</p>
+            <p style="color: #aaddff;">🛡️ Equip shields to block enemy attacks!</p>
         </div>
     </div>
 
@@ -244,6 +246,28 @@
                                 <span>Stone Shovel</span>
                             </div>
                         </div>
+                        <div class="recipe-item">
+                            <div class="recipe-ingredients">
+                                <div class="block-preview planks small"></div>
+                                <span>×4</span>
+                            </div>
+                            <span class="recipe-arrow">→</span>
+                            <div class="recipe-result">
+                                <div class="tool-preview wooden-shield small"></div>
+                                <span>Wooden Shield (50% dmg block)</span>
+                            </div>
+                        </div>
+                        <div class="recipe-item">
+                            <div class="recipe-ingredients">
+                                <div class="block-preview stone small"></div>
+                                <span>×4</span>
+                            </div>
+                            <span class="recipe-arrow">→</span>
+                            <div class="recipe-result">
+                                <div class="tool-preview stone-shield small"></div>
+                                <span>Stone Shield (70% dmg block)</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -271,7 +295,7 @@
                         <div class="block-preview planks"></div>
                         <span class="item-name">Planks</span>
                         <span class="item-price">5 💰</span>
-                        <button class="buy-button" data-item="109" data-cost="5">Buy</button>
+                        <button class="buy-button" data-item="111" data-cost="5">Buy</button>
                     </div>
                     <div class="shop-item">
                         <div class="block-preview stone"></div>
@@ -299,7 +323,7 @@
                         <div class="item-preview stick"></div>
                         <span class="item-name">Stick</span>
                         <span class="item-price">2 💰</span>
-                        <button class="buy-button" data-item="108" data-cost="2">Buy</button>
+                        <button class="buy-button" data-item="110" data-cost="2">Buy</button>
                     </div>
                 </div>
                 
@@ -356,6 +380,22 @@
                         <span class="item-name">Stone Shovel</span>
                         <span class="item-price">18 💰</span>
                         <button class="buy-button" data-item="107" data-cost="18">Buy</button>
+                    </div>
+                </div>
+                
+                <div class="shop-category">
+                    <h3>🛡️ Shields - Defense Items</h3>
+                    <div class="shop-item">
+                        <div class="tool-preview wooden-shield"></div>
+                        <span class="item-name">Wooden Shield</span>
+                        <span class="item-price">30 💰</span>
+                        <button class="buy-button" data-item="108" data-cost="30">Buy</button>
+                    </div>
+                    <div class="shop-item">
+                        <div class="tool-preview stone-shield"></div>
+                        <span class="item-name">Stone Shield</span>
+                        <span class="item-price">50 💰</span>
+                        <button class="buy-button" data-item="109" data-cost="50">Buy</button>
                     </div>
                 </div>
             </div>

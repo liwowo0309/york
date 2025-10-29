@@ -56,10 +56,12 @@ const ItemType = {
     STONE_AXE: 105,
     WOODEN_SHOVEL: 106,
     STONE_SHOVEL: 107,
-    STICK: 108,
-    PLANKS: 109,
-    COIN_ITEM: 110,
-    FRIED_CHICKEN_WING: 111,
+    WOODEN_SHIELD: 108,
+    STONE_SHIELD: 109,
+    STICK: 110,
+    PLANKS: 111,
+    COIN_ITEM: 112,
+    FRIED_CHICKEN_WING: 113,
     FENCE: 7  // Same as BlockType.FENCE
 };
 
@@ -138,6 +140,23 @@ const Recipes = [
         ],
         result: ItemType.FENCE,
         count: 3
+    },
+    // Shields
+    {
+        pattern: [
+            [ItemType.AIR, ItemType.AIR, ItemType.AIR],
+            [ItemType.PLANKS, ItemType.PLANKS, ItemType.PLANKS],
+            [ItemType.AIR, ItemType.PLANKS, ItemType.AIR]
+        ],
+        result: ItemType.WOODEN_SHIELD
+    },
+    {
+        pattern: [
+            [ItemType.AIR, ItemType.AIR, ItemType.AIR],
+            [ItemType.STONE, ItemType.STONE, ItemType.STONE],
+            [ItemType.AIR, ItemType.STONE, ItemType.AIR]
+        ],
+        result: ItemType.STONE_SHIELD
     },
     // Stone tools
     {
@@ -668,9 +687,23 @@ class Game {
                 if (distanceToPlayer < 1.5) {
                     enemy.attackCooldown -= deltaTime;
                     if (enemy.attackCooldown <= 0) {
-                        this.player.health -= enemy.damage;
+                        // Check if player has a shield equipped
+                        const currentItem = this.hotbar[this.selectedSlot];
+                        let damageReduction = 0;
+                        let blockedMessage = '';
+                        
+                        if (currentItem.type === ItemType.WOODEN_SHIELD) {
+                            damageReduction = 0.5; // Block 50% damage
+                            blockedMessage = ' (50% blocked by wooden shield!)';
+                        } else if (currentItem.type === ItemType.STONE_SHIELD) {
+                            damageReduction = 0.7; // Block 70% damage
+                            blockedMessage = ' (70% blocked by stone shield!)';
+                        }
+                        
+                        const actualDamage = Math.round(enemy.damage * (1 - damageReduction));
+                        this.player.health -= actualDamage;
                         enemy.attackCooldown = 1.0; // Attack once per second
-                        console.log(`${enemy.type} attacked! Player health: ${this.player.health}`);
+                        console.log(`${enemy.type} attacked! Damage: ${actualDamage}${blockedMessage} | Player health: ${this.player.health}`);
                         
                         if (this.player.health <= 0) {
                             this.gameOver();
@@ -1322,6 +1355,10 @@ class Game {
             preview.className = 'tool-preview wooden-shovel';
         } else if (itemType === ItemType.STONE_SHOVEL) {
             preview.className = 'tool-preview stone-shovel';
+        } else if (itemType === ItemType.WOODEN_SHIELD) {
+            preview.className = 'tool-preview wooden-shield';
+        } else if (itemType === ItemType.STONE_SHIELD) {
+            preview.className = 'tool-preview stone-shield';
         } else if (itemType === ItemType.STICK) {
             preview.className = 'item-preview stick';
         } else if (itemType === ItemType.COIN_ITEM) {
@@ -1601,37 +1638,54 @@ class Game {
     placeBlock() {
         const currentItem = this.hotbar[this.selectedSlot];
         
-        // Can't place if it's a tool or no item
+        // Can't place if it's a tool, shield, or no item
         const isPlaceableBlock = currentItem.type <= BlockType.FENCE || currentItem.type === ItemType.PLANKS;
+        const isShield = currentItem.type === ItemType.WOODEN_SHIELD || currentItem.type === ItemType.STONE_SHIELD;
         
-        if (!isPlaceableBlock || currentItem.type === ItemType.AIR || currentItem.count === 0) {
+        if (!isPlaceableBlock || isShield || currentItem.type === ItemType.AIR || currentItem.count === 0) {
             return;
         }
         
         const target = this.getTargetBlock();
+        let newX, newY, newZ;
+        
         if (target && target.face) {
+            // Place next to existing block
             const { x, y, z } = target.block.userData;
             const normal = target.face.normal;
             
-            const newX = Math.round(x + normal.x);
-            const newY = Math.round(y + normal.y);
-            const newZ = Math.round(z + normal.z);
+            newX = Math.round(x + normal.x);
+            newY = Math.round(y + normal.y);
+            newZ = Math.round(z + normal.z);
+        } else {
+            // Place in mid-air where you're looking
+            this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+            const direction = this.raycaster.ray.direction;
+            const origin = this.camera.position.clone();
             
-            // Check if player would be inside the block
-            const playerBlock = this.player.position.clone().floor();
-            if (newX === playerBlock.x && newY === playerBlock.y && newZ === playerBlock.z) return;
-            if (newX === playerBlock.x && newY === playerBlock.y - 1 && newZ === playerBlock.z) return;
+            // Place block 5 blocks away from player
+            const placeDistance = 5;
+            const placePoint = origin.add(direction.multiplyScalar(placeDistance));
             
-            this.setBlock(newX, newY, newZ, currentItem.type);
-            
-            // Remove from inventory
-            if (currentItem.count !== Infinity) {
-                currentItem.count--;
-                if (currentItem.count === 0) {
-                    currentItem.type = ItemType.AIR;
-                }
-                this.updateHotbarUI();
+            newX = Math.floor(placePoint.x);
+            newY = Math.floor(placePoint.y);
+            newZ = Math.floor(placePoint.z);
+        }
+        
+        // Check if player would be inside the block
+        const playerBlock = this.player.position.clone().floor();
+        if (newX === playerBlock.x && newY === playerBlock.y && newZ === playerBlock.z) return;
+        if (newX === playerBlock.x && newY === playerBlock.y - 1 && newZ === playerBlock.z) return;
+        
+        this.setBlock(newX, newY, newZ, currentItem.type);
+        
+        // Remove from inventory
+        if (currentItem.count !== Infinity) {
+            currentItem.count--;
+            if (currentItem.count === 0) {
+                currentItem.type = ItemType.AIR;
             }
+            this.updateHotbarUI();
         }
     }
     
