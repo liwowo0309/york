@@ -1646,9 +1646,21 @@ class Game {
             return;
         }
         
-        const target = this.getTargetBlock();
-        let newX, newY, newZ;
+        // Always calculate mid-air placement position first
+        this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+        const direction = this.raycaster.ray.direction.clone();
+        const origin = this.camera.position.clone();
         
+        // Place block 5 blocks away from player
+        const placeDistance = 5;
+        const placePoint = origin.add(direction.multiplyScalar(placeDistance));
+        
+        let newX = Math.floor(placePoint.x);
+        let newY = Math.floor(placePoint.y);
+        let newZ = Math.floor(placePoint.z);
+        
+        // Check if we're looking at an existing block - if so, place next to it instead
+        const target = this.getTargetBlock();
         if (target && target.face) {
             // Place next to existing block
             const { x, y, z } = target.block.userData;
@@ -1657,19 +1669,12 @@ class Game {
             newX = Math.round(x + normal.x);
             newY = Math.round(y + normal.y);
             newZ = Math.round(z + normal.z);
-        } else {
-            // Place in mid-air where you're looking
-            this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-            const direction = this.raycaster.ray.direction;
-            const origin = this.camera.position.clone();
-            
-            // Place block 5 blocks away from player
-            const placeDistance = 5;
-            const placePoint = origin.add(direction.multiplyScalar(placeDistance));
-            
-            newX = Math.floor(placePoint.x);
-            newY = Math.floor(placePoint.y);
-            newZ = Math.floor(placePoint.z);
+        }
+        // Otherwise use the mid-air position we calculated above
+        
+        // Check if there's already a block there
+        if (this.getBlock(newX, newY, newZ) !== BlockType.AIR) {
+            return; // Can't place if there's already a block
         }
         
         // Check if player would be inside the block
