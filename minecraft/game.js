@@ -1,10 +1,10 @@
 // Game constants
 const BLOCK_SIZE = 1;
-const WORLD_SIZE = 64; // Increased from 32 to 64 for bigger world
+const WORLD_SIZE = 128; // Increased from 64 to 128 for bigger world
 const CHUNK_HEIGHT = 16;
 const GRAVITY = 20;
 const JUMP_SPEED = 8;
-const MOVE_SPEED = 5;
+const MOVE_SPEED = 10; // Increased from 5 to 10 to run faster
 const REACH_DISTANCE = 5;
 
 // Animal types
@@ -20,17 +20,6 @@ const AnimalColors = {
     [AnimalType.COW]: 0x8b4513, // Brown
     [AnimalType.PIG]: 0xffc0cb, // Pink
     [AnimalType.CHICKEN]: 0xffffff // White
-};
-
-// Enemy types
-const EnemyType = {
-    ZOMBIE: 'zombie',
-    SKELETON: 'skeleton'
-};
-
-const EnemyColors = {
-    [EnemyType.ZOMBIE]: 0x2d5016, // Dark green (zombie skin)
-    [EnemyType.SKELETON]: 0xe0e0e0 // Light gray (bones)
 };
 
 // Block types
@@ -204,7 +193,6 @@ class Game {
         this.world = {};
         this.blocks = new Map();
         this.animals = [];
-        this.enemies = [];
         this.player = {
             position: new THREE.Vector3(WORLD_SIZE / 2, CHUNK_HEIGHT + 5, WORLD_SIZE / 2),
             velocity: new THREE.Vector3(0, 0, 0),
@@ -281,9 +269,6 @@ class Game {
         // Spawn animals
         this.spawnAnimals();
         
-        // Spawn enemies
-        this.spawnEnemies();
-        
         // Setup controls
         this.setupControls();
         
@@ -315,23 +300,34 @@ class Game {
                     } else {
                         blockType = BlockType.STONE;
                     }
-                    this.setBlock(x, y, z, blockType);
+                    this.setBlock(x, y, z, blockType, false);
                 }
                 
                 // Add occasional trees
-                if (Math.random() > 0.98 && height === CHUNK_HEIGHT) {
-                    this.generateTree(x, height, z);
+                if (Math.random() > 0.90 && height === CHUNK_HEIGHT) {
+                    this.generateTree(x, height, z, false);
                 }
             }
         }
         
         // Hide coins in the world
-        this.generateCoins();
+        this.generateCoins(false);
+        
+        // Final pass to create meshes only for visible blocks
+        for (let x = 0; x < WORLD_SIZE; x++) {
+            for (let z = 0; z < WORLD_SIZE; z++) {
+                for (let y = 0; y <= CHUNK_HEIGHT + 15; y++) {
+                    if (this.getBlock(x, y, z) !== BlockType.AIR) {
+                        this.updateBlockMesh(x, y, z);
+                    }
+                }
+            }
+        }
     }
     
     spawnAnimals() {
         const animalTypes = [AnimalType.SHEEP, AnimalType.COW, AnimalType.PIG, AnimalType.CHICKEN];
-        const numAnimals = 20; // Spawn 20 animals
+        const numAnimals = 60; // Spawn 60 animals for the larger world
         
         for (let i = 0; i < numAnimals; i++) {
             const type = animalTypes[Math.floor(Math.random() * animalTypes.length)];
@@ -523,228 +519,6 @@ class Game {
         };
     }
     
-    spawnEnemies() {
-        const enemyTypes = [EnemyType.ZOMBIE, EnemyType.SKELETON];
-        const numEnemies = 15; // Spawn 15 enemies
-        
-        for (let i = 0; i < numEnemies; i++) {
-            const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-            // Spawn enemies away from player spawn point
-            let x, z;
-            do {
-                x = Math.random() * WORLD_SIZE;
-                z = Math.random() * WORLD_SIZE;
-            } while (Math.abs(x - WORLD_SIZE / 2) < 10 && Math.abs(z - WORLD_SIZE / 2) < 10);
-            
-            const y = this.findSurfaceHeight(Math.floor(x), Math.floor(z)) + 2;
-            
-            const enemy = this.createEnemy(type, x, y, z);
-            this.enemies.push(enemy);
-            this.scene.add(enemy.mesh);
-        }
-    }
-    
-    createEnemy(type, x, y, z) {
-        const group = new THREE.Group();
-        
-        if (type === EnemyType.ZOMBIE) {
-            // Zombie - humanoid figure with green skin
-            const bodyGeo = new THREE.BoxGeometry(0.6, 1.0, 0.4);
-            const bodyMat = new THREE.MeshLambertMaterial({ color: 0x2d5016 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = 0.5;
-            body.castShadow = true;
-            group.add(body);
-            
-            // Head
-            const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-            const head = new THREE.Mesh(headGeo, bodyMat);
-            head.position.set(0, 1.25, 0);
-            head.castShadow = true;
-            group.add(head);
-            
-            // Eyes (red glowing)
-            const eyeGeo = new THREE.BoxGeometry(0.1, 0.1, 0.05);
-            const eyeMat = new THREE.MeshLambertMaterial({ 
-                color: 0xff0000,
-                emissive: 0xff0000,
-                emissiveIntensity: 0.5
-            });
-            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
-            eye1.position.set(-0.15, 1.3, 0.26);
-            group.add(eye1);
-            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
-            eye2.position.set(0.15, 1.3, 0.26);
-            group.add(eye2);
-            
-            // Arms
-            const armGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
-            const armMat = new THREE.MeshLambertMaterial({ color: 0x243d12 });
-            const leftArm = new THREE.Mesh(armGeo, armMat);
-            leftArm.position.set(-0.425, 0.6, 0);
-            leftArm.castShadow = true;
-            group.add(leftArm);
-            const rightArm = new THREE.Mesh(armGeo, armMat);
-            rightArm.position.set(0.425, 0.6, 0);
-            rightArm.castShadow = true;
-            group.add(rightArm);
-            
-            // Legs
-            const legGeo = new THREE.BoxGeometry(0.25, 0.8, 0.25);
-            const leftLeg = new THREE.Mesh(legGeo, bodyMat);
-            leftLeg.position.set(-0.15, -0.4, 0);
-            leftLeg.castShadow = true;
-            group.add(leftLeg);
-            const rightLeg = new THREE.Mesh(legGeo, bodyMat);
-            rightLeg.position.set(0.15, -0.4, 0);
-            rightLeg.castShadow = true;
-            group.add(rightLeg);
-            
-        } else if (type === EnemyType.SKELETON) {
-            // Skeleton - thin humanoid with bone color
-            const bodyGeo = new THREE.BoxGeometry(0.5, 0.9, 0.3);
-            const bodyMat = new THREE.MeshLambertMaterial({ color: 0xe0e0e0 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = 0.45;
-            body.castShadow = true;
-            group.add(body);
-            
-            // Head (skull)
-            const headGeo = new THREE.BoxGeometry(0.45, 0.45, 0.45);
-            const head = new THREE.Mesh(headGeo, bodyMat);
-            head.position.set(0, 1.15, 0);
-            head.castShadow = true;
-            group.add(head);
-            
-            // Eyes (dark sockets)
-            const eyeGeo = new THREE.BoxGeometry(0.12, 0.12, 0.05);
-            const eyeMat = new THREE.MeshLambertMaterial({ color: 0x000000 });
-            const eye1 = new THREE.Mesh(eyeGeo, eyeMat);
-            eye1.position.set(-0.12, 1.2, 0.23);
-            group.add(eye1);
-            const eye2 = new THREE.Mesh(eyeGeo, eyeMat);
-            eye2.position.set(0.12, 1.2, 0.23);
-            group.add(eye2);
-            
-            // Arms (thin)
-            const armGeo = new THREE.BoxGeometry(0.2, 0.7, 0.2);
-            const leftArm = new THREE.Mesh(armGeo, bodyMat);
-            leftArm.position.set(-0.35, 0.5, 0);
-            leftArm.castShadow = true;
-            group.add(leftArm);
-            const rightArm = new THREE.Mesh(armGeo, bodyMat);
-            rightArm.position.set(0.35, 0.5, 0);
-            rightArm.castShadow = true;
-            group.add(rightArm);
-            
-            // Legs (thin)
-            const legGeo = new THREE.BoxGeometry(0.2, 0.7, 0.2);
-            const leftLeg = new THREE.Mesh(legGeo, bodyMat);
-            leftLeg.position.set(-0.12, -0.35, 0);
-            leftLeg.castShadow = true;
-            group.add(leftLeg);
-            const rightLeg = new THREE.Mesh(legGeo, bodyMat);
-            rightLeg.position.set(0.12, -0.35, 0);
-            rightLeg.castShadow = true;
-            group.add(rightLeg);
-        }
-        
-        group.position.set(x, y, z);
-        
-        return {
-            type: type,
-            mesh: group,
-            velocity: new THREE.Vector3(0, 0, 0),
-            health: 50,
-            maxHealth: 50,
-            damage: 10,
-            attackCooldown: 0,
-            isHostile: true
-        };
-    }
-    
-    updateEnemies(deltaTime) {
-        this.enemies.forEach((enemy, index) => {
-            // Chase player AI
-            const distanceToPlayer = enemy.mesh.position.distanceTo(this.player.position);
-            
-            if (distanceToPlayer < 20) { // Aggro range
-                // Move towards player
-                const direction = new THREE.Vector3();
-                direction.subVectors(this.player.position, enemy.mesh.position);
-                direction.y = 0; // Don't move vertically
-                direction.normalize();
-                
-                const speed = 2.5; // Slightly slower than player
-                enemy.velocity.x = direction.x * speed;
-                enemy.velocity.z = direction.z * speed;
-                
-                // Face player
-                const angle = Math.atan2(direction.x, direction.z);
-                enemy.mesh.rotation.y = angle;
-                
-                // Attack player if close enough
-                if (distanceToPlayer < 1.5) {
-                    enemy.attackCooldown -= deltaTime;
-                    if (enemy.attackCooldown <= 0) {
-                        // Check if player has a shield equipped
-                        const currentItem = this.hotbar[this.selectedSlot];
-                        let damageReduction = 0;
-                        let blockedMessage = '';
-                        
-                        if (currentItem.type === ItemType.WOODEN_SHIELD) {
-                            damageReduction = 0.5; // Block 50% damage
-                            blockedMessage = ' (50% blocked by wooden shield!)';
-                        } else if (currentItem.type === ItemType.STONE_SHIELD) {
-                            damageReduction = 0.7; // Block 70% damage
-                            blockedMessage = ' (70% blocked by stone shield!)';
-                        }
-                        
-                        const actualDamage = Math.round(enemy.damage * (1 - damageReduction));
-                        this.player.health -= actualDamage;
-                        enemy.attackCooldown = 1.0; // Attack once per second
-                        console.log(`${enemy.type} attacked! Damage: ${actualDamage}${blockedMessage} | Player health: ${this.player.health}`);
-                        
-                        if (this.player.health <= 0) {
-                            this.gameOver();
-                        }
-                    }
-                }
-            } else {
-                // Idle - slow random movement
-                enemy.velocity.x *= 0.9;
-                enemy.velocity.z *= 0.9;
-            }
-            
-            // Apply gravity
-            enemy.velocity.y -= GRAVITY * deltaTime;
-            
-            // Update position
-            const newPos = enemy.mesh.position.clone();
-            newPos.add(enemy.velocity.clone().multiplyScalar(deltaTime));
-            
-            // Check ground collision
-            const groundY = this.findSurfaceHeight(Math.floor(newPos.x), Math.floor(newPos.z)) + 1;
-            
-            if (newPos.y <= groundY) {
-                newPos.y = groundY;
-                enemy.velocity.y = 0;
-            }
-            
-            // Keep enemies in bounds
-            if (newPos.x < 2 || newPos.x > WORLD_SIZE - 2) {
-                enemy.velocity.x *= -1;
-                newPos.x = Math.max(2, Math.min(WORLD_SIZE - 2, newPos.x));
-            }
-            if (newPos.z < 2 || newPos.z > WORLD_SIZE - 2) {
-                enemy.velocity.z *= -1;
-                newPos.z = Math.max(2, Math.min(WORLD_SIZE - 2, newPos.z));
-            }
-            
-            enemy.mesh.position.copy(newPos);
-        });
-    }
-    
     updateAnimals(deltaTime) {
         this.animals.forEach(animal => {
             // Simple wandering AI
@@ -824,7 +598,7 @@ class Game {
         });
     }
     
-    generateCoins() {
+    generateCoins(updateMeshes = true) {
         const numCoins = Math.floor(WORLD_SIZE * WORLD_SIZE * 0.05); // 5% of world area (more coins!)
         this.totalCoins = numCoins;
         
@@ -839,23 +613,23 @@ class Game {
                 // Underground (buried in stone) - less deep
                 const y = Math.floor(Math.random() * 5) + CHUNK_HEIGHT - 3; // Closer to surface
                 if (this.getBlock(x, y, z) === BlockType.STONE) {
-                    this.setBlock(x, y, z, BlockType.COIN);
+                    this.setBlock(x, y, z, BlockType.COIN, updateMeshes);
                 }
             } else if (strategy === 1) {
                 // In dirt layers - very shallow
                 const surface = this.findSurfaceHeight(x, z);
                 const y = Math.max(surface - 1, 2); // Just below surface
                 if (this.getBlock(x, y, z) === BlockType.DIRT) {
-                    this.setBlock(x, y, z, BlockType.COIN);
+                    this.setBlock(x, y, z, BlockType.COIN, updateMeshes);
                 }
             } else if (strategy === 2) {
                 // On surface everywhere (not just hills!)
                 const surface = this.findSurfaceHeight(x, z);
-                this.setBlock(x, surface, z, BlockType.COIN);
+                this.setBlock(x, surface, z, BlockType.COIN, updateMeshes);
             } else {
                 // On surface as well (doubled surface coins!)
                 const surface = this.findSurfaceHeight(x, z);
-                this.setBlock(x, surface, z, BlockType.COIN);
+                this.setBlock(x, surface, z, BlockType.COIN, updateMeshes);
             }
         }
     }
@@ -869,10 +643,10 @@ class Game {
         return CHUNK_HEIGHT;
     }
     
-    generateTree(x, y, z) {
+    generateTree(x, y, z, updateMeshes = true) {
         // Trunk
         for (let i = 0; i < 5; i++) {
-            this.setBlock(x, y + i, z, BlockType.WOOD);
+            this.setBlock(x, y + i, z, BlockType.WOOD, updateMeshes);
         }
         
         // Leaves
@@ -881,33 +655,60 @@ class Game {
                 for (let dy = 4; dy <= 6; dy++) {
                     if (dx === 0 && dz === 0 && dy < 6) continue;
                     if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
-                    this.setBlock(x + dx, y + dy, z + dz, BlockType.LEAVES);
+                    this.setBlock(x + dx, y + dy, z + dz, BlockType.LEAVES, updateMeshes);
                 }
             }
         }
     }
     
-    setBlock(x, y, z, type) {
+    setBlock(x, y, z, type, updateMeshes = true) {
         const key = `${x},${y},${z}`;
         
         if (type === BlockType.AIR) {
+            delete this.world[key];
+        } else {
+            this.world[key] = type;
+        }
+        
+        if (updateMeshes) {
+            this.updateBlockMesh(x, y, z);
+            this.updateBlockMesh(x + 1, y, z);
+            this.updateBlockMesh(x - 1, y, z);
+            this.updateBlockMesh(x, y + 1, z);
+            this.updateBlockMesh(x, y - 1, z);
+            this.updateBlockMesh(x, y, z + 1);
+            this.updateBlockMesh(x, y, z - 1);
+        }
+    }
+    
+    isBlockVisible(x, y, z) {
+        if (this.getBlock(x + 1, y, z) === BlockType.AIR) return true;
+        if (this.getBlock(x - 1, y, z) === BlockType.AIR) return true;
+        if (this.getBlock(x, y + 1, z) === BlockType.AIR) return true;
+        if (this.getBlock(x, y - 1, z) === BlockType.AIR) return true;
+        if (this.getBlock(x, y, z + 1) === BlockType.AIR) return true;
+        if (this.getBlock(x, y, z - 1) === BlockType.AIR) return true;
+        return false;
+    }
+    
+    updateBlockMesh(x, y, z) {
+        const key = `${x},${y},${z}`;
+        const type = this.getBlock(x, y, z);
+        
+        if (type === BlockType.AIR || !this.isBlockVisible(x, y, z)) {
             const block = this.blocks.get(key);
             if (block) {
                 this.scene.remove(block);
                 this.blocks.delete(key);
             }
-            delete this.world[key];
-            return;
-        }
-        
-        this.world[key] = type;
-        
-        if (!this.blocks.has(key)) {
-            const mesh = this.createBlockMesh(type);
-            mesh.position.set(x, y, z);
-            mesh.userData = { x, y, z, type };
-            this.scene.add(mesh);
-            this.blocks.set(key, mesh);
+        } else {
+            if (!this.blocks.has(key)) {
+                const mesh = this.createBlockMesh(type);
+                mesh.position.set(x, y, z);
+                mesh.userData = { x, y, z, type };
+                this.scene.add(mesh);
+                this.blocks.set(key, mesh);
+            }
         }
     }
     
@@ -1425,69 +1226,7 @@ class Game {
     }
     
     breakBlock() {
-        // Check if clicking on an enemy first
         this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
-        const enemyMeshes = this.enemies.map(e => e.mesh);
-        const enemyHits = this.raycaster.intersectObjects(enemyMeshes, true);
-        
-        if (enemyHits.length > 0 && enemyHits[0].distance <= REACH_DISTANCE) {
-            const hitObject = enemyHits[0].object;
-            let enemyIndex = -1;
-            
-            for (let i = 0; i < this.enemies.length; i++) {
-                if (this.enemies[i].mesh === hitObject || this.enemies[i].mesh === hitObject.parent) {
-                    enemyIndex = i;
-                    break;
-                }
-            }
-            
-            if (enemyIndex !== -1) {
-                const enemy = this.enemies[enemyIndex];
-                const currentItem = this.hotbar[this.selectedSlot];
-                
-                // Calculate damage based on weapon
-                let damage = 5; // Base fist damage
-                if (currentItem.type === ItemType.WOODEN_SWORD) {
-                    damage = 15;
-                } else if (currentItem.type === ItemType.STONE_SWORD) {
-                    damage = 25;
-                } else if (currentItem.type === ItemType.WOODEN_AXE) {
-                    damage = 12;
-                } else if (currentItem.type === ItemType.STONE_AXE) {
-                    damage = 20;
-                }
-                
-                enemy.health -= damage;
-                console.log(`Hit ${enemy.type}! Damage: ${damage}, Health: ${enemy.health}/${enemy.maxHealth}`);
-                
-                if (enemy.health <= 0) {
-                    // Enemy defeated - remove and give rewards
-                    this.scene.remove(enemy.mesh);
-                    this.enemies.splice(enemyIndex, 1);
-                    
-                    // Reward coins
-                    const coinReward = Math.floor(Math.random() * 20) + 15; // 15-35 coins
-                    this.coinBalance += coinReward;
-                    console.log(`Defeated ${enemy.type}! +${coinReward} coins!`);
-                    this.updateCoinDisplay();
-                    
-                    // Respawn a new enemy elsewhere
-                    const enemyTypes = [EnemyType.ZOMBIE, EnemyType.SKELETON];
-                    const type = enemyTypes[Math.floor(Math.random() * enemyTypes.length)];
-                    let x, z;
-                    do {
-                        x = Math.random() * WORLD_SIZE;
-                        z = Math.random() * WORLD_SIZE;
-                    } while (Math.abs(x - WORLD_SIZE / 2) < 10 && Math.abs(z - WORLD_SIZE / 2) < 10);
-                    const y = this.findSurfaceHeight(Math.floor(x), Math.floor(z)) + 2;
-                    
-                    const newEnemy = this.createEnemy(type, x, y, z);
-                    this.enemies.push(newEnemy);
-                    this.scene.add(newEnemy.mesh);
-                }
-                return;
-            }
-        }
         
         // Check if clicking on an animal
         const animalMeshes = this.animals.map(a => a.mesh);
@@ -1806,12 +1545,6 @@ class Game {
         this.camera.rotation.copy(this.player.rotation);
     }
     
-    gameOver() {
-        alert(`Game Over! You were defeated by enemies. Final coin balance: ${this.coinBalance}`);
-        // Reload the page to restart
-        location.reload();
-    }
-    
     updateUI() {
         const fps = Math.round(1 / this.clock.getDelta());
         document.getElementById('fps').textContent = fps;
@@ -1850,9 +1583,8 @@ class Game {
             this.updatePlayer(deltaTime);
         }
         
-        // Always update animals and enemies
+        // Always update animals
         this.updateAnimals(deltaTime);
-        this.updateEnemies(deltaTime);
         
         // Health regeneration (1 HP every 5 seconds)
         this.player.healthRegenTimer += deltaTime;
