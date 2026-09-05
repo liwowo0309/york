@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我们的家 · 过日子</title>
+  <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+  <div id="start-screen">
+    <div class="start-card">
+      <p class="eyebrow">过日子游戏</p>
+      <h1>我们的家</h1>
+      <p class="start-story">
+        这里住着爸爸、妈妈、哥哥，还有依月（Leah）。<br>
+        在家里看乌龟、做咖啡、睡觉；出门逛街、上学、帮助别人。<br>
+        先帮助别人才能挣钱，有了钱才能买食物、种子和大车。<br>
+        棕色的大门上写着要去的地方，走到门前点一下就能进去。<br>
+        按 M 给妈妈打电话，按 D 给爸爸打电话，他们就会过来。
+      </p>
+      <div class="start-actions">
+        <button id="continue-btn" type="button">从上次加载</button>
+        <button id="start-btn" type="button">从头开始</button>
+      </div>
+      <p id="save-info" class="hint"></p>
+      <p class="hint">方向键走路 · 空格做事 · P 哥哥跟着 · M 叫妈妈 · D 叫爸爸</p>
+    </div>
+  </div>
+
+  <div id="game-root" class="hidden">
+    <header class="hud">
+      <div class="hud-title">
+        <strong id="scene-name">家里</strong>
+        <span id="day-label">第 1 天 · 早上</span>
+      </div>
+      <div class="stats">
+        <span title="金币">金币 <b id="stat-gold">0</b></span>
+        <span title="健康">健康 <b id="stat-health">80</b></span>
+        <span title="精力">精力 <b id="stat-energy">80</b></span>
+        <span title="开心">开心 <b id="stat-happy">70</b></span>
+      </div>
+    </header>
+
+    <div class="stage">
+      <canvas id="game" width="960" height="540" aria-label="我们的家"></canvas>
+      <p id="toast" class="toast hidden"></p>
+    </div>
+
+    <div class="bag" id="bag"></div>
+    <p class="hint-bar" id="hint-bar">走到门边，就可以出门逛街啦。</p>
+  </div>
+
+  <div id="modal" class="hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+      <button id="modal-close" type="button">关掉</button>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

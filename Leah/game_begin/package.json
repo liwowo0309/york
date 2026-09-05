@@ -1,0 +1,8 @@
+{
+  "name": "yiyue-home",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Family life simulation for 依月 (Leah). Offline browser game.",
+  "license": "UNLICENSED",
+  "type": "module"
+}
