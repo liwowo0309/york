@@ -1,3 +1,6 @@
+import { emptyFood, normalizeState } from "./items.js";
+import { HOME_LAYOUT } from "./content.js";
+
 export function defaultState() {
   return {
     scene: "home",
@@ -9,15 +12,18 @@ export function defaultState() {
     health: 82,
     energy: 84,
     happy: 72,
+    learn: 8,
     water: 1,
-    food: 1,
+    bagFood: { ...emptyFood(), bread: 1 },
+    fridgeFood: emptyFood(),
     birdFood: 0,
     cage: false,
     car: false,
     driving: false,
-    outfit: "home",
+    wearing: { clothes: "home", hat: "", hair: "", shoes: "shoes-home" },
+    owned: { clothes: ["home"], hats: [], hair: [], shoes: ["shoes-home"] },
+    books: [],
     seeds: { apple: 0, tree: 0, flower: 0 },
-    clothes: ["home"],
     friends: [],
     classCount: 0,
     playerGrade: 1,
@@ -32,6 +38,7 @@ export function defaultState() {
     visitedYard: false,
     visitedSeedShop: false,
     visitedFoodShop: false,
+    visitedBookShop: false,
     visitedPost: false,
     momQuestDone: false,
     dadQuestDone: false,
@@ -47,15 +54,15 @@ export function defaultPlayer() {
 }
 
 export function defaultBrother() {
-  return { x: 200, y: 400, scene: "home", following: false, walk: 0 };
+  return { x: HOME_LAYOUT.bro.x, y: HOME_LAYOUT.bro.y, scene: "home", following: false, walk: 0 };
 }
 
 export function defaultMom() {
-  return { x: 280, y: 300, scene: "home", called: false, walk: 0, job: "在家做饭" };
+  return { x: HOME_LAYOUT.mom.x, y: HOME_LAYOUT.mom.y, scene: "home", called: false, walk: 0, job: "在家做饭" };
 }
 
 export function defaultDad() {
-  return { x: 420, y: 340, scene: "home", called: false, walk: 0, job: "在家看门" };
+  return { x: HOME_LAYOUT.dad.x, y: HOME_LAYOUT.dad.y, scene: "home", called: false, walk: 0, job: "在家看门" };
 }
 
 export function createWorld() {
@@ -76,6 +83,7 @@ export function createWorld() {
 
 export function resetWorld(world) {
   Object.assign(world.state, defaultState());
+  normalizeState(world.state, world.state);
   Object.assign(world.player, defaultPlayer());
   Object.assign(world.brother, defaultBrother());
   Object.assign(world.mom, defaultMom());

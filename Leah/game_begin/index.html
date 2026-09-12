@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>我们的家 · 过日子</title>
-  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/main.css?v=savefix">
 </head>
 <body>
   <div id="start-screen">
@@ -20,9 +20,13 @@
       </p>
       <div class="start-actions">
         <button id="continue-btn" type="button">从上次加载</button>
+        <button id="export-btn" type="button">导出进度</button>
+        <button id="import-btn" type="button">导入进度</button>
         <button id="start-btn" type="button">从头开始</button>
       </div>
+      <input id="import-file" type="file" accept="application/json,.json" hidden>
       <p id="save-info" class="hint"></p>
+      <p class="hint">进度跟完整网址绑在一起。请打开你平时玩的那个：http://127.0.0.1:8777 。localhost:8080 是另一个地方，看不到第 6 天。</p>
       <p class="hint">方向键走路 · 空格做事 · P 哥哥跟着 · M 叫妈妈 · D 叫爸爸</p>
     </div>
   </div>
@@ -38,6 +42,7 @@
         <span title="健康">健康 <b id="stat-health">80</b></span>
         <span title="精力">精力 <b id="stat-energy">80</b></span>
         <span title="开心">开心 <b id="stat-happy">70</b></span>
+        <span title="学习">学习 <b id="stat-learn">8</b></span>
       </div>
     </header>
 
@@ -46,8 +51,10 @@
       <p id="toast" class="toast hidden"></p>
     </div>
 
-    <div class="bag" id="bag"></div>
-    <p class="hint-bar" id="hint-bar">走到门边，就可以出门逛街啦。</p>
+    <div class="dock">
+      <div class="bag" id="bag"></div>
+      <p class="hint-bar" id="hint-bar">走到门边，就可以出门逛街啦。</p>
+    </div>
   </div>
 
   <div id="modal" class="hidden" role="dialog" aria-modal="true">

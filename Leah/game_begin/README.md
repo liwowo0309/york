@@ -13,7 +13,10 @@ cd Leah/game_begin
 python3 -m http.server 8080
 ```
 
-Then visit `http://localhost:8080`.
+Then visit the same address you already use. Progress is stored per address.
+
+- If you have been playing at `http://127.0.0.1:8777`, keep using that.
+- `http://localhost:8080` is a different address and will not see that save.
 
 ## Controls
 

@@ -1,18 +1,35 @@
 import { CONFIG, chineseGrade, shopTitle, timeName } from "./config.js";
 import { clamp, dist } from "./math.js";
 import {
-  CLASSROOM_FRIENDS,
-  HELP_JOBS,
+  MY_CLASSMATES,
   SHOP_STREET_POS,
+  classmatesAt,
   createDadQuests,
   createMomQuests,
   createScenes,
+  HOME_LAYOUT,
+  helpHardLabel,
+  jobsForDay,
   parentErrand,
 } from "./content.js";
+import {
+  BOOKS,
+  FOOD_ORDER,
+  FOOD_TYPES,
+  SLOT_NAMES,
+  addFood,
+  findWearable,
+  foodSummary,
+  foodTotal,
+  moveAllFood,
+  normalizeState,
+  shopWearables,
+  takeFood,
+} from "./items.js";
 import { createWorld, plantAt, resetWorld } from "./world.js";
 import { createSave } from "./save.js";
-import { createUI } from "./ui.js";
-import { createRenderer } from "./render.js";
+import { createUI } from "./ui.js?v=dock";
+import { createRenderer } from "./render.js?v=home";
 
 export function createGame() {
   const canvas = document.getElementById("game");
@@ -38,27 +55,41 @@ export function createGame() {
   }
 
   function currentQuest(who) {
-    const list = who === "mom" ? momQuests : dadQuests;
+    const list = (who === "mom" ? momQuests : dadQuests).filter((quest) => !quest.extra);
     return list[(Math.max(0, state.day) - 1) % list.length];
   }
 
-  function inventoryText() {
-    const bits = [];
-    if (state.food) bits.push(`食物 ${state.food}`);
-    if (state.water) bits.push(`水 ${state.water}`);
-    Object.entries(state.seeds).forEach(([key, n]) => {
-      if (n) bits.push(`${CONFIG.seedNames[key]} ${n}`);
-    });
-    if (state.cage) bits.push("鸟笼子");
-    if (state.birdFood) bits.push(`鸟食 ${state.birdFood}`);
-    if (state.car) bits.push("大车");
-    if (state.homeBirds.length) bits.push(`好看的鸟 ${state.homeBirds.length}`);
-    if (state.friends.length) bits.push(`好朋友 ${state.friends.length}`);
+  function chip(icon, count) {
+    return count == null ? icon : `${icon}${count}`;
+  }
+
+  function foodChips(box) {
+    const foods = box || {};
+    return FOOD_ORDER
+      .filter((key) => (foods[key] || 0) > 0)
+      .map((key) => chip(FOOD_TYPES[key].icon, foods[key]));
+  }
+
+  function inventoryHtml() {
+    const bits = [
+      ...foodChips(state.bagFood),
+      state.water ? chip("💧", state.water) : "",
+      ...Object.entries(state.seeds)
+        .filter(([, n]) => n)
+        .map(([key, n]) => chip(key === "apple" ? "🍏" : key === "flower" ? "🌸" : "🌳", n)),
+      state.birdFood ? chip("🌾", state.birdFood) : "",
+      state.books.length ? chip("📚", state.books.length) : "",
+      ...foodChips(state.fridgeFood),
+      state.cage ? "🪺" : "",
+      state.homeBirds.length ? chip("🐦", state.homeBirds.length) : "",
+      state.car ? "🚗" : "",
+      state.friends.length ? chip("💕", state.friends.length) : "",
+    ].filter(Boolean);
     const momQ = currentQuest("mom");
     const dadQ = currentQuest("dad");
-    if (momQ) bits.push(state.momQuestDone ? "妈妈的事做完了" : `妈妈要你${momQ.short}`);
-    if (dadQ) bits.push(state.dadQuestDone ? "爸爸的事做完了" : `爸爸要你${dadQ.short}`);
-    return bits.length ? `背包：${bits.join(" · ")}` : "背包还空着。先去大街上帮助别人，再买需要的东西。";
+    if (momQ && !state.momQuestDone) bits.push("💗");
+    if (dadQ && !state.dadQuestDone) bits.push("💙");
+    return bits.join(" ") || "🎒";
   }
 
   function refreshHud() {
@@ -69,7 +100,8 @@ export function createGame() {
       health: Math.round(state.health),
       energy: Math.round(state.energy),
       happy: Math.round(state.happy),
-      bag: inventoryText(),
+      learn: Math.round(state.learn),
+      bag: inventoryHtml(),
     });
   }
 
@@ -93,6 +125,20 @@ export function createGame() {
 
   function addEnergy(n) {
     state.energy = clamp(state.energy + n, 0, 100);
+  }
+
+  function addLearn(n) {
+    state.learn = clamp(state.learn + n, 0, 100);
+  }
+
+  function availableFood() {
+    return foodTotal(state.bagFood) + foodTotal(state.fridgeFood);
+  }
+
+  function consumeFood(n = 1) {
+    const fromBag = takeFood(state.bagFood, n);
+    if (fromBag.length >= n) return fromBag;
+    return fromBag.concat(takeFood(state.fridgeFood, n - fromBag.length));
   }
 
   function placeParentsForTime() {
@@ -147,6 +193,7 @@ export function createGame() {
     state.visitedYard = false;
     state.visitedSeedShop = false;
     state.visitedFoodShop = false;
+    state.visitedBookShop = false;
     state.visitedPost = false;
     state.momQuestDone = false;
     state.dadQuestDone = false;
@@ -198,6 +245,7 @@ export function createGame() {
     let bestD = 999;
     scene.spots.forEach((spot) => {
       if (spot.id === "mycar" && !state.car) return;
+      if (spot.id === "readTable" && state.shop !== "book") return;
       if (spot.id === "bro" && (brother.scene !== "home" || dist(brother.x, brother.y, spot.x, spot.y) > 40)) return;
       if (spot.id === "mom" && (mom.scene !== "home" || dist(mom.x, mom.y, spot.x, spot.y) > 50)) return;
       if (spot.id === "dad" && (dad.scene !== "home" || dist(dad.x, dad.y, spot.x, spot.y) > 50)) return;
@@ -229,6 +277,9 @@ export function createGame() {
     if (id === "turtle") watchTurtles();
     else if (id === "coffee") makeCoffee();
     else if (id === "fridge") useFridge();
+    else if (id === "wardrobe") openWardrobe();
+    else if (id === "study") openStudy(false);
+    else if (id === "readTable") openStudy(true);
     else if (id === "water") takeWater();
     else if (id === "cage") useCage();
     else if (id === "bed") sleep();
@@ -248,6 +299,7 @@ export function createGame() {
     else if (id === "leaveWork") go("street", 475, 948);
     else if (id === "foodshop") enterShop("food");
     else if (id === "clothesshop") enterShop("clothes");
+    else if (id === "bookstore") enterShop("book");
     else if (id === "seedshop") enterShop("seed");
     else if (id === "birdshop") enterShop("bird");
     else if (id === "carshop") enterShop("car");
@@ -260,8 +312,8 @@ export function createGame() {
     else if (id === "basketball") playToy("你投进了一个球！操场上好朋友拍手。", 7, 8);
     else if (id === "rope") playToy("跳绳跳到 20 下，老师说你很认真。", 6, 7);
     else if (id === "soccer") playToy("足球滚过草地，你和同学一起追。", 8, 7);
-    else if (id === "teacher") talkTeacher();
-    else if (id === "desk") sitClass();
+    else if (id === "teacher") startClass();
+    else if (id === "desk") startClass();
     else if (id.startsWith("friend")) talkFriend(Number(id.replace("friend", "")));
     else if (id === "bathDoor") go("bath", 480, 340);
     else if (id === "leaveClass") go("schoolYard", 200, 430);
@@ -284,12 +336,13 @@ export function createGame() {
     } else if (id === "mycar") {
       state.driving = !state.driving;
       ui.toast(state.driving ? "坐上大车啦！在大街上开得更快。" : "你下车了。");
-    } else if (spot.jobId) doJob(spot.jobId);
+    } else if (spot.helpSlot != null) doJob(spot.helpSlot);
   }
 
   function enterShop(kind) {
     if (kind === "food") state.visitedFoodShop = true;
     if (kind === "seed") state.visitedSeedShop = true;
+    if (kind === "book") state.visitedBookShop = true;
     go("shop", 480, 430, { shop: kind });
   }
 
@@ -310,15 +363,49 @@ export function createGame() {
   }
 
   function useFridge() {
-    if (state.food <= 0) {
-      ui.toast("冰箱空了。要先挣钱，再去食物店买吃的。");
+    const bagCount = foodTotal(state.bagFood);
+    const fridgeCount = foodTotal(state.fridgeFood);
+    if (!bagCount && !fridgeCount) {
+      ui.toast("冰箱是空的，书包里也没有食物。先去食物店买，再拿回家放进冰箱。");
       return;
     }
-    state.food -= 1;
-    addHealth(18);
-    addHappy(4);
-    ui.toast("你吃了一点家里的食物，身体暖暖的。");
-    refreshHud();
+    const bagText = bagCount ? `书包里有${foodSummary(state.bagFood)}。` : "书包里没有食物。";
+    const fridgeText = fridgeCount ? `冰箱里有${foodSummary(state.fridgeFood)}。` : "冰箱现在是空的。";
+    ui.openModal("冰箱", `<p>${fridgeText}${bagText}要放进去，还是吃一点？</p><div class="choices"><button class="choice" id="fridge-put" ${bagCount ? "" : "disabled"}>放进冰箱</button><button class="choice" id="fridge-eat" ${fridgeCount || bagCount ? "" : "disabled"}>吃一点</button></div>`);
+    const putBtn = document.getElementById("fridge-put");
+    const eatBtn = document.getElementById("fridge-eat");
+    if (putBtn) {
+      putBtn.onclick = () => {
+        if (!foodTotal(state.bagFood)) {
+          ui.toast("书包里没有可以放的食物。");
+          return;
+        }
+        const moved = moveAllFood(state.bagFood, state.fridgeFood);
+        ui.closeModal();
+        ui.toast(`你把${foodSummary(moved)}放进冰箱了。想吃的时候再打开冰箱。`);
+        refreshHud();
+        saveApi.save();
+      };
+    }
+    if (eatBtn) {
+      eatBtn.onclick = () => {
+        const fromFridge = foodTotal(state.fridgeFood) > 0;
+        const eaten = fromFridge ? takeFood(state.fridgeFood, 1) : takeFood(state.bagFood, 1);
+        if (!eaten.length) {
+          ui.toast("没有食物可以吃。");
+          return;
+        }
+        const kind = FOOD_TYPES[eaten[0]];
+        addHealth(kind.health);
+        addHappy(4);
+        ui.closeModal();
+        ui.toast(fromFridge
+          ? `你从冰箱里拿出${kind.icon}${kind.name}吃了一口，身体暖暖的。`
+          : `你吃了书包里的${kind.icon}${kind.name}。下次可以先放进冰箱。`);
+        refreshHud();
+        saveApi.save();
+      };
+    }
   }
 
   function takeWater() {
@@ -356,12 +443,12 @@ export function createGame() {
       ui.toast("现在还早，先去上学或者帮助别人吧。");
       return;
     }
-    player.x = 820;
-    player.y = 390;
+    player.x = HOME_LAYOUT.bed.x;
+    player.y = HOME_LAYOUT.bed.y;
     brother.following = false;
     brother.scene = "home";
-    brother.x = 200;
-    brother.y = 400;
+    brother.x = HOME_LAYOUT.bro.x;
+    brother.y = HOME_LAYOUT.bro.y;
     mom.called = false;
     dad.called = false;
     newDay();
@@ -540,7 +627,7 @@ export function createGame() {
       return;
     }
     if (plant.stage >= 3 && plant.type === "apple" && plant.cooldown <= 0) {
-      state.food += 2;
+      addFood(state.bagFood, "apple", 2);
       plant.cooldown = 1;
       addHappy(6);
       ui.toast("苹果成熟了！你摘了两颗，可以放进冰箱。");
@@ -571,25 +658,47 @@ export function createGame() {
     return true;
   }
 
-  function doJob(jobId) {
-    const job = HELP_JOBS.find((j) => j.id === jobId);
-    if (state.helpedToday[jobId]) {
+  function todayJobs() {
+    return jobsForDay(state.day);
+  }
+
+  function doJob(slot) {
+    const job = todayJobs()[slot];
+    if (!job) return;
+    if (state.helpedToday[job.id]) {
       ui.toast(`${job.name}今天已经被你帮助过了。明天再来吧。`);
       return;
     }
-    if (job.need === "food" && state.food <= 0) {
+    if (job.needFood && availableFood() < job.needFood) {
       ui.toast("你还没有食物可以分。先去买一点，再来帮助别人。");
       return;
     }
-    ui.openModal(job.name, `<p>${job.talk}</p><div class="choices"><button class="choice" id="help-yes">我来帮助你</button></div>`);
+    if (job.needWater && state.water < job.needWater) {
+      ui.toast("你还没有水可以分。先提一桶水，再来帮助别人。");
+      return;
+    }
+    const needEnergy = job.energyCost || 4;
+    if (state.energy < needEnergy + 6) {
+      ui.toast("你现在太累了。先回家休息，明天再来帮这个忙。");
+      return;
+    }
+    const hardText = helpHardLabel(job.hard);
+    const extra = job.hard >= 3
+      ? "这件事很难，会比较累，也要花更多时间，但工钱更多。"
+      : job.hard === 2
+        ? "这件事有一点难。"
+        : "这件事不太难。";
+    ui.openModal(job.name, `<p>${job.talk}</p><p>${extra}工钱 ${job.gold} 金币。</p><div class="choices"><button class="choice" id="help-yes">${job.hard >= 3 ? "我来试试（很难）" : "我来帮助你"}</button></div>`);
     document.getElementById("help-yes").onclick = () => {
-      if (job.need === "food") state.food -= 1;
-      state.helpedToday[jobId] = true;
+      if (job.needFood) consumeFood(job.needFood);
+      if (job.needWater) state.water -= job.needWater;
+      state.helpedToday[job.id] = true;
       state.gold += job.gold;
-      addHappy(10);
-      advanceTime();
+      addHappy(job.hard >= 3 ? 14 : 10);
+      addEnergy(-needEnergy);
+      advanceTime(job.timeSteps || 1);
       ui.closeModal();
-      ui.toast(`${job.done} +${job.gold} 金币`);
+      ui.toast(`${job.done} +${job.gold} 金币（${hardText}）`);
       refreshHud();
       saveApi.save();
     };
@@ -606,47 +715,39 @@ export function createGame() {
         const grade = Number(btn.dataset.grade);
         ui.closeModal();
         go("classroom", 120, 430, { gradeFloor: grade });
-        ui.toast(`你来到${chineseGrade(grade)}。这一层就是这个年级。`);
+        startClass();
       };
     });
   }
 
-  function talkTeacher() {
-    addHappy(4);
-    if (state.timeIndex === 0) {
-      ui.toast(`老师：小朋友们坐好。今天${chineseGrade(state.gradeFloor)}要认真上课，下课再去操场。`);
-    } else {
-      ui.toast("老师：现在不是上课时间。你可以看看书，或去操场玩。");
-    }
-  }
-
-  function sitClass() {
-    if (state.timeIndex !== 0) {
-      ui.toast("现在不是上课时间。早上来坐在小桌子旁边，才可以上课。");
-      return;
-    }
+  function startClass() {
     state.classCount += 1;
     addHappy(8);
     addEnergy(-6);
+    addLearn(4);
     if (state.gradeFloor === state.playerGrade) {
-      ui.toast("你坐在自己的小桌子上听课。老师在黑板上写字，好朋友就在旁边。");
+      ui.toast(`老师看见依月来了，马上开课。${MY_CLASSMATES.join("、")}都坐好了。`);
       if (state.classCount % 3 === 0 && state.playerGrade < 10) {
         state.playerGrade += 1;
         ui.toast(`你升级了！下次你是${chineseGrade(state.playerGrade)}的学生。`);
       }
     } else {
-      ui.toast(`你来${chineseGrade(state.gradeFloor)}参观听课。每个楼层都是一个年级。`);
+      ui.toast(`老师看见有小朋友来听课，马上开课。你在${chineseGrade(state.gradeFloor)}坐下来。`);
     }
-    if (state.outfit !== "school" && state.clothes.includes("school")) {
-      ui.toast("穿上校服再来上课会更整齐哦。");
+    if (state.wearing.clothes !== "school" && state.owned.clothes.includes("school")) {
+      ui.toast("穿上校服再来上课会更整齐哦。回家到衣柜那里可以换上。");
     }
     advanceTime();
     refreshHud();
   }
 
   function talkFriend(index) {
-    const names = CLASSROOM_FRIENDS[state.gradeFloor] || CLASSROOM_FRIENDS[1];
-    const name = names[index] || "同学";
+    const names = classmatesAt(state.gradeFloor, state.playerGrade);
+    const name = names[index];
+    if (!name) {
+      ui.toast("这张桌子现在没人坐。");
+      return;
+    }
     if (!state.friends.includes(name)) {
       state.friends.push(name);
       addHappy(8);
@@ -658,24 +759,116 @@ export function createGame() {
     refreshHud();
   }
 
-  function wear(kind) {
-    if (!state.clothes.includes(kind)) state.clothes.push(kind);
-    state.outfit = kind;
-    addHappy(6);
+  function ownWearable(slot, id) {
+    if (!state.owned[slot].includes(id)) state.owned[slot].push(id);
+  }
+
+  function wearItem(slot, id) {
+    if (id && !state.owned[slot].includes(id)) return;
+    state.wearing[slot] = id || "";
+    const item = id ? findWearable(slot, id) : null;
+    addHappy(4);
+    if (!id) ui.toast(slot === "hats" ? "你把帽子放回衣柜了。" : "你把头花放回衣柜了。");
+    else ui.toast(`你从衣柜里拿出${item.name}，穿上了。`);
+    ui.closeModal();
+    refreshHud();
+    saveApi.save();
+  }
+
+  function openWardrobe() {
+    const sections = ["clothes", "hats", "hair", "shoes"].map((slot) => {
+      const canClear = (slot === "hats" || slot === "hair") && state.wearing[slot];
+      const owned = state.owned[slot]
+        .map((id) => {
+          const item = findWearable(slot, id);
+          if (!item) return "";
+          const on = state.wearing[slot] === id;
+          return `<button class="wear-item ${on ? "wearing" : ""}" data-slot="${slot}" data-id="${id}">${on ? "正在穿 · " : ""}${item.name}</button>`;
+        })
+        .join("");
+      const clear = canClear ? `<button class="wear-item" data-slot="${slot}" data-id="">放回去</button>` : "";
+      return `<h3 class="wear-h">${SLOT_NAMES[slot]}</h3><div class="wear-grid">${owned}${clear}</div>`;
+    }).join("");
+    ui.openModal("衣柜", `<p>校服、裙子、帽子、头花和鞋子都在这里。想穿哪一件，点一下就好。</p>${sections}`);
+    ui.modalBody.querySelectorAll("[data-slot]").forEach((btn) => {
+      btn.onclick = () => wearItem(btn.dataset.slot, btn.dataset.id);
+    });
+  }
+
+  function readBook(book, atStore) {
+    if (state.learn < book.need) {
+      ui.toast(`《${book.name}》现在有点难。学习到 ${book.need} 再来读。你可以先在书桌前写字。`);
+      return;
+    }
+    addLearn(book.learn);
+    addHappy(book.happy);
+    addEnergy(-5);
+    advanceTime();
+    ui.closeModal();
+    ui.toast(`${book.text} 学习 +${book.learn}${atStore ? "（在书店读的）" : ""}`);
+    refreshHud();
+    saveApi.save();
+  }
+
+  function openStudy(atStore) {
+    if (atStore && state.shop !== "book") {
+      ui.toast("这张桌子是书店里看书用的。");
+      return;
+    }
+    const ownedBooks = BOOKS.filter((book) => state.books.includes(book.id));
+    const bookButtons = ownedBooks.map((book) => {
+      const hard = state.learn < book.need;
+      return `<button class="choice" data-book="${book.id}">${hard ? "还太难 · " : "读"}《${book.name}》${hard ? `（要学习 ${book.need}）` : ""}</button>`;
+    }).join("");
+    const studyBtn = atStore ? "" : `<button class="choice" id="study-write">在书桌前写字学习</button>`;
+    const intro = atStore
+      ? (ownedBooks.length ? "坐下来读你买的书。学习越高，越难的书也能读。" : "先到柜台买一本书，再坐下来读。")
+      : "写字可以提高学习。学习高了，就能读更难、更好玩的书。";
+    ui.openModal(atStore ? "书店的小桌子" : "书桌", `<p>${intro}现在学习 ${Math.round(state.learn)}。</p><div class="choices">${studyBtn}${bookButtons || (atStore ? "" : "<p>还没有书。去大街上的书店买一本吧。</p>")}</div>`);
+    const writeBtn = document.getElementById("study-write");
+    if (writeBtn) {
+      writeBtn.onclick = () => {
+        addLearn(6);
+        addEnergy(-6);
+        addHappy(3);
+        advanceTime();
+        ui.closeModal();
+        ui.toast(`你在书桌前认真写字。学习更高了，以后能读更厉害的书。`);
+        refreshHud();
+        saveApi.save();
+      };
+    }
+    ui.modalBody.querySelectorAll("[data-book]").forEach((btn) => {
+      btn.onclick = () => {
+        const book = BOOKS.find((item) => item.id === btn.dataset.book);
+        if (book) readBook(book, atStore);
+      };
+    });
   }
 
   function openShop() {
     const catalogs = {
       food: [
-        { name: "面包", cost: 6, buy: () => { state.food += 1; } },
-        { name: "好多食物", cost: 16, buy: () => { state.food += 3; } },
+        { name: "苹果", cost: 6, buy: () => { addFood(state.bagFood, "apple", 1); } },
+        { name: "面包", cost: 6, buy: () => { addFood(state.bagFood, "bread", 1); } },
+        { name: "米饭", cost: 7, buy: () => { addFood(state.bagFood, "rice", 1); } },
+        { name: "好多苹果", cost: 16, buy: () => { addFood(state.bagFood, "apple", 3); } },
         { name: "一桶水", cost: 4, buy: () => { state.water += 2; state.tookWater = true; } },
       ],
-      clothes: [
-        { name: "校服", cost: 12, buy: () => wear("school"), skip: state.clothes.includes("school") },
-        { name: "运动服", cost: 14, buy: () => wear("sport"), skip: state.clothes.includes("sport") },
-        { name: "好看的裙子", cost: 18, buy: () => wear("fancy"), skip: state.clothes.includes("fancy") },
-      ],
+      clothes: shopWearables().map((item) => ({
+        name: `${SLOT_NAMES[item.slot]} · ${item.name}`,
+        cost: item.cost,
+        skip: state.owned[item.slot].includes(item.id),
+        buy: () => ownWearable(item.slot, item.id),
+        toast: `你买下了${item.name}，店员帮你放进衣柜了。回家到衣柜那里可以穿上。`,
+      })),
+      book: BOOKS.map((book) => ({
+        name: `《${book.name}》${book.need ? `（学习 ${book.need} 才能读懂）` : "（谁都能读）"}`,
+        cost: book.cost,
+        skip: state.books.includes(book.id),
+        buy: () => { if (!state.books.includes(book.id)) state.books.push(book.id); },
+        toast: `你买下了《${book.name}》。可以在店里的小桌子读，也可以带回家读。`,
+      })),
       seed: [
         { name: "能长出苹果的种子", cost: 10, buy: () => { state.seeds.apple += 1; } },
         { name: "大树种子", cost: 12, buy: () => { state.seeds.tree += 1; } },
@@ -689,20 +882,25 @@ export function createGame() {
         { name: "家里的大车", cost: 80, buy: () => { state.car = true; }, skip: state.car },
       ],
     };
+    const blurb = {
+      food: "买回来的食物在书包里。回家到冰箱前面，可以按「放进冰箱」。",
+      clothes: "衣服、小裙子、帽子、头花和鞋子都在这家店。买好会放进家里的衣柜。",
+      book: "越厉害，能读的书就越好玩、越难。先买回家，再到小桌子或书桌前读。",
+    };
     const items = catalogs[state.shop]
       .map((item, i) => {
         const owned = item.skip;
         return `<button class="shop-item" data-i="${i}" ${owned || state.gold < item.cost ? "disabled" : ""}><span>${owned ? "已经有了 · " : ""}${item.name}</span><span>${item.cost} 金币</span></button>`;
       })
       .join("");
-    ui.openModal(shopTitle(state.shop), `<p>用帮助别人挣来的钱买东西。买食物是为了让一家人健康，也可以分给需要的人。</p><div class="shop-list">${items}</div>`);
+    ui.openModal(shopTitle(state.shop), `<p>${blurb[state.shop] || "用帮助别人挣来的钱买东西。"}</p><div class="shop-list">${items}</div>`);
     ui.modalBody.querySelectorAll(".shop-item").forEach((btn) => {
       btn.onclick = () => {
         const item = catalogs[state.shop][Number(btn.dataset.i)];
         if (!pay(item.cost)) return;
         item.buy();
         ui.closeModal();
-        ui.toast(`你买下了${item.name}。`);
+        ui.toast(item.toast || `你买下了${item.name}。`);
         refreshHud();
         saveApi.save();
       };
@@ -785,7 +983,15 @@ export function createGame() {
     else if (brother.following) ui.setHint("哥哥正跟着你。再按 P，他会停下来等你。");
     else if (mom.called) ui.setHint("妈妈正过来陪你。再按 M，她去忙自己的事。");
     else if (dad.called) ui.setHint("爸爸正过来陪你。再按 D，他去忙自己的事。");
-    else if (spot) ui.setHint(`靠近了${spot.name}。按空格或再点一下。`);
+    else if (spot && spot.id.startsWith("friend")) {
+      const names = classmatesAt(state.gradeFloor, state.playerGrade);
+      const name = names[Number(spot.id.replace("friend", ""))] || "空桌子";
+      ui.setHint(`靠近了${name}。按空格或再点一下。`);
+    } else if (spot && spot.helpSlot != null) {
+      const job = todayJobs()[spot.helpSlot];
+      const label = job ? `${job.name}（${helpHardLabel(job.hard)}）` : spot.name;
+      ui.setHint(`靠近了${label}。按空格或再点一下。`);
+    } else if (spot) ui.setHint(`靠近了${spot.name}。按空格或再点一下。`);
     else if (state.scene === "park" && nearestBird()) ui.setHint("一只好看的鸟就在旁边。按空格试试抓住它。");
     else ui.setHint(currentScene().hint);
   }
@@ -886,20 +1092,34 @@ export function createGame() {
     keys.delete(event.key.toLowerCase());
   });
 
+  function saveLine(save) {
+    const s = save?.state;
+    if (!s) return "";
+    const extras = [
+      s.cage ? "有鸟笼子" : "",
+      Array.isArray(s.homeBirds) && s.homeBirds.length ? `${s.homeBirds.length} 只鸟` : "",
+    ].filter(Boolean);
+    return `第 ${s.day || 1} 天，${s.gold ?? 0} 金币${extras.length ? `，${extras.join("，")}` : ""}`;
+  }
+
   function refreshSaveInfo() {
     const save = saveApi.read();
     const continueBtn = document.getElementById("continue-btn");
+    const exportBtn = document.getElementById("export-btn");
     const info = document.getElementById("save-info");
     if (!save || !save.state) {
       continueBtn.disabled = true;
-      info.textContent = "还没有存档。先从头开始玩。";
+      exportBtn.disabled = true;
+      info.textContent = "这个地址里还没有存档。第 6 天的进度在 http://127.0.0.1:8777 ，请打开那个。也可以点「导入进度」。";
       return;
     }
     continueBtn.disabled = false;
-    info.textContent = `上次玩到第 ${save.state.day || 1} 天，有 ${save.state.gold ?? 0} 金币。`;
+    exportBtn.disabled = false;
+    info.textContent = `找到进度：${saveLine(save)}。请点「从上次加载」，不要点「从头开始」。`;
   }
 
   function beginPlay(message) {
+    normalizeState(world.state, world.state);
     ui.showGame();
     if (state.scene === "park" && state.wildBirds.length === 0) spawnWildBirds();
     refreshHud();
@@ -922,8 +1142,45 @@ export function createGame() {
   document.getElementById("continue-btn").onclick = () => {
     const save = saveApi.read();
     if (!save) return;
-    saveApi.apply(save);
-    beginPlay(`欢迎回来，依月。这是第 ${state.day} 天。按 M 叫妈妈，按 D 叫爸爸。`);
+    try {
+      saveApi.apply(save);
+      saveApi.save();
+      beginPlay(`欢迎回来，依月。这是第 ${state.day} 天。按 M 叫妈妈，按 D 叫爸爸。`);
+    } catch {
+      refreshSaveInfo();
+      ui.toast("存档还在，这一次没打开。再点一次「从上次加载」。");
+    }
+  };
+
+  document.getElementById("export-btn").onclick = () => {
+    const text = saveApi.exportText();
+    const blob = new Blob([text], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `yiyue-day-${saveApi.read()?.state?.day || 1}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    ui.toast("进度已导出。换电脑或换网址时，用「导入进度」打开这个文件。");
+  };
+
+  document.getElementById("import-btn").onclick = () => {
+    document.getElementById("import-file").click();
+  };
+
+  document.getElementById("import-file").onchange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        if (!saveApi.importText(String(reader.result || ""))) return;
+        beginPlay(`进度回来了。这是第 ${state.day} 天。`);
+      } catch {
+        ui.toast("这个文件不是游戏进度。请选导出的那个 json。");
+      }
+    };
+    reader.readAsText(file);
   };
 
   document.getElementById("start-btn").onclick = () => {

@@ -71,6 +71,8 @@ body {
 
 #start-btn,
 #continue-btn,
+#import-btn,
+#export-btn,
 #modal-close,
 .choice,
 .shop-item {
@@ -86,7 +88,9 @@ body {
 }
 
 #continue-btn,
-#start-btn {
+#start-btn,
+#import-btn,
+#export-btn {
   border-radius: 999px;
   padding: 12px 28px;
   font-size: 20px;
@@ -98,7 +102,9 @@ body {
   box-shadow: 0 6px 0 #4f7d53;
 }
 
-#start-btn {
+#start-btn,
+#import-btn,
+#export-btn {
   background: #ffe9c9;
   color: var(--ink);
   box-shadow: 0 6px 0 #c9894a;
@@ -114,7 +120,8 @@ body {
   box-shadow: 0 4px 0 #c9894a;
 }
 
-#continue-btn:disabled {
+#continue-btn:disabled,
+#export-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
   transform: none;
@@ -131,8 +138,8 @@ body {
   flex-direction: column;
   max-width: 1040px;
   margin: 0 auto;
-  padding: 16px 16px 28px;
-  gap: 10px;
+  padding: 10px 16px 16px;
+  gap: 8px;
 }
 
 .hud {
@@ -197,22 +204,83 @@ canvas {
   box-shadow: 0 8px 20px var(--shadow);
 }
 
+.dock {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 4px 10px;
+  min-height: 32px;
+}
+
 .bag,
 .hint-bar {
-  background: var(--paper);
-  border-radius: 16px;
-  padding: 10px 14px;
+  background: none;
+  border-radius: 0;
+  padding: 0;
 }
 
 .bag {
-  min-height: 44px;
-  color: var(--muted);
-  line-height: 1.6;
+  flex: 0 0 auto;
+  min-height: 0;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .hint-bar {
+  flex: 1 1 auto;
   margin: 0;
   color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wear-h {
+  margin: 14px 0 8px;
+  font-size: 16px;
+  color: var(--ink);
+}
+
+.wear-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wear-item {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  text-align: left;
+  background: #ffe9c9;
+  color: var(--ink);
+}
+
+.wear-item.wearing {
+  background: #d7efd3;
+  box-shadow: inset 0 0 0 2px var(--sage);
+}
+
+.wear-item:hover {
+  background: #ffd7a1;
+}
+
+.wear-item.wearing:hover {
+  background: #c8e6c3;
+}
+
+.choice:disabled,
+#fridge-put:disabled,
+#fridge-eat:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 #modal {
@@ -226,7 +294,7 @@ canvas {
 }
 
 .modal-card {
-  width: min(520px, 100%);
+  width: min(560px, 100%);
   background: var(--paper);
   border-radius: 24px;
   padding: 22px 22px 18px;

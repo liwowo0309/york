@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "state": {
+    "scene": "home",
+    "gradeFloor": 1,
+    "shop": "food",
+    "day": 6,
+    "timeIndex": 1,
+    "gold": 150,
+    "health": 100,
+    "energy": 86,
+    "happy": 100,
+    "water": 1,
+    "food": 0,
+    "birdFood": 0,
+    "cage": true,
+    "car": false,
+    "driving": false,
+    "outfit": "home",
+    "clothes": ["home"],
+    "seeds": { "apple": 0, "tree": 0, "flower": 0 },
+    "friends": [],
+    "classCount": 0,
+    "playerGrade": 1,
+    "plants": [],
+    "homeBirds": [
+      { "color": "#7eb6d9" },
+      { "color": "#e0b35a" },
+      { "color": "#8a8f7a" }
+    ],
+    "wildBirds": [],
+    "helpedToday": {},
+    "watchedTurtle": false,
+    "madeCoffee": false,
+    "tookWater": false,
+    "visitedPark": false,
+    "visitedYard": false,
+    "visitedSeedShop": false,
+    "visitedFoodShop": false,
+    "visitedPost": false,
+    "momQuestDone": false,
+    "dadQuestDone": false,
+    "turtles": [
+      { "x": 0.3, "y": 0.45, "s": 0.01 },
+      { "x": 0.62, "y": 0.6, "s": -0.013 }
+    ]
+  },
+  "player": { "x": 800, "y": 200, "facing": 1 },
+  "brother": { "x": 680, "y": 300, "scene": "home", "following": false, "walk": 0 },
+  "mom": { "x": 820, "y": 180, "scene": "home", "called": true, "walk": 0, "job": "在家做饭" },
+  "dad": { "x": 860, "y": 180, "scene": "home", "called": true, "walk": 0, "job": "在家看门" }
+}
