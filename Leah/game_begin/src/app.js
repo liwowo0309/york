@@ -1,8 +1,10 @@
 import { CONFIG, chineseGrade, shopTitle, timeName } from "./config.js";
 import { clamp, dist } from "./math.js";
 import {
-  MY_CLASSMATES,
+  CAR_LIMIT,
+  PETS,
   SHOP_STREET_POS,
+  carFormation,
   classmatesAt,
   createDadQuests,
   createMomQuests,
@@ -10,7 +12,10 @@ import {
   HOME_LAYOUT,
   helpHardLabel,
   jobsForDay,
+  lessonsForDay,
   parentErrand,
+  scheduleLine,
+  weekdayName,
 } from "./content.js";
 import {
   BOOKS,
@@ -29,7 +34,7 @@ import {
 import { createWorld, plantAt, resetWorld } from "./world.js";
 import { createSave } from "./save.js";
 import { createUI } from "./ui.js?v=dock";
-import { createRenderer } from "./render.js?v=home";
+import { createRenderer } from "./render.js?v=pets";
 
 export function createGame() {
   const canvas = document.getElementById("game");
@@ -77,12 +82,11 @@ export function createGame() {
       ...Object.entries(state.seeds)
         .filter(([, n]) => n)
         .map(([key, n]) => chip(key === "apple" ? "🍏" : key === "flower" ? "🌸" : "🌳", n)),
-      state.birdFood ? chip("🌾", state.birdFood) : "",
+      state.petFood ? chip("🌾", state.petFood) : "",
       state.books.length ? chip("📚", state.books.length) : "",
       ...foodChips(state.fridgeFood),
-      state.cage ? "🪺" : "",
-      state.homeBirds.length ? chip("🐦", state.homeBirds.length) : "",
-      state.car ? "🚗" : "",
+      state.pets.length ? chip("🐾", state.pets.length) : "",
+      state.carCount ? chip("🚗", state.carCount) : "",
       state.friends.length ? chip("💕", state.friends.length) : "",
     ].filter(Boolean);
     const momQ = currentQuest("mom");
@@ -95,8 +99,10 @@ export function createGame() {
   function refreshHud() {
     ui.refreshHud({
       sceneName: sceneTitle(),
-      dayLabel: `第 ${state.day} 天 · ${timeName(state.timeIndex)}`,
+      dayLabel: `第 ${state.day} 天 · ${weekdayName(state.day)} · ${timeName(state.timeIndex)}`,
       gold: state.gold,
+      sunCoins: state.sunCoins,
+      metalCoins: state.metalCoins,
       health: Math.round(state.health),
       energy: Math.round(state.energy),
       happy: Math.round(state.happy),
@@ -197,6 +203,9 @@ export function createGame() {
     state.visitedPost = false;
     state.momQuestDone = false;
     state.dadQuestDone = false;
+    state.lessonDay = state.day;
+    state.lessonIndex = 0;
+    state.pendingLesson = "";
     state.plants.forEach((plant) => {
       if (plant.watered && plant.stage < 3) {
         plant.stage += 1;
@@ -221,20 +230,24 @@ export function createGame() {
     player.target = null;
     world.pendingSpot = null;
     state.driving = scene === "street" ? state.driving : false;
+    if (!state.driving) state.rideMode = "";
     if (scene === "park") {
       state.visitedPark = true;
       if (state.wildBirds.length === 0) spawnWildBirds();
     }
     if (scene === "schoolYard") state.visitedYard = true;
-    const followers = [];
-    if (brother.following) followers.push(brother);
-    if (mom.called) followers.push(mom);
-    if (dad.called) followers.push(dad);
-    followers.forEach((person, i) => {
-      person.scene = scene;
-      person.x = x + (i - 1) * 30;
-      person.y = y + 14;
-    });
+    const schoolRoom = scene === "classroom" || scene === "dance" || scene === "music" || scene === "bath" || scene === "schoolYard";
+    if (!schoolRoom) {
+      const followers = [];
+      if (brother.following) followers.push(brother);
+      if (mom.called) followers.push(mom);
+      if (dad.called) followers.push(dad);
+      followers.forEach((person, i) => {
+        person.scene = scene;
+        person.x = x + (i - 1) * 30;
+        person.y = y + 14;
+      });
+    }
     refreshHud();
     saveApi.save();
   }
@@ -244,7 +257,7 @@ export function createGame() {
     let best = null;
     let bestD = 999;
     scene.spots.forEach((spot) => {
-      if (spot.id === "mycar" && !state.car) return;
+      if (spot.id === "mycar" && !state.carCount) return;
       if (spot.id === "readTable" && state.shop !== "book") return;
       if (spot.id === "bro" && (brother.scene !== "home" || dist(brother.x, brother.y, spot.x, spot.y) > 40)) return;
       if (spot.id === "mom" && (mom.scene !== "home" || dist(mom.x, mom.y, spot.x, spot.y) > 50)) return;
@@ -281,7 +294,7 @@ export function createGame() {
     else if (id === "study") openStudy(false);
     else if (id === "readTable") openStudy(true);
     else if (id === "water") takeWater();
-    else if (id === "cage") useCage();
+    else if (id === "cage") usePets();
     else if (id === "bed") sleep();
     else if (id === "door" || id === "homeDoor") {
       if (state.scene === "home") go("street", 170, 948);
@@ -312,8 +325,14 @@ export function createGame() {
     else if (id === "basketball") playToy("你投进了一个球！操场上好朋友拍手。", 7, 8);
     else if (id === "rope") playToy("跳绳跳到 20 下，老师说你很认真。", 6, 7);
     else if (id === "soccer") playToy("足球滚过草地，你和同学一起追。", 8, 7);
-    else if (id === "teacher") startClass();
-    else if (id === "desk") startClass();
+    else if (id === "teacher") talkTeacher();
+    else if (id === "desk") tryStartHere("classroom");
+    else if (id === "danceSeat") tryStartHere("dance");
+    else if (id === "musicSeat") tryStartHere("music");
+    else if (id === "flag") tryStartHere("schoolYard");
+    else if (id === "danceDoor") go("dance", 480, 400);
+    else if (id === "musicDoor") go("music", 480, 400);
+    else if (id === "leaveDance" || id === "leaveMusic") go("schoolYard", 480, 360);
     else if (id.startsWith("friend")) talkFriend(Number(id.replace("friend", "")));
     else if (id === "bathDoor") go("bath", 480, 340);
     else if (id === "leaveClass") go("schoolYard", 200, 430);
@@ -333,10 +352,8 @@ export function createGame() {
         addHealth(25);
         ui.toast("医生说你很健康，记得每天吃饭。");
       }
-    } else if (id === "mycar") {
-      state.driving = !state.driving;
-      ui.toast(state.driving ? "坐上大车啦！在大街上开得更快。" : "你下车了。");
-    } else if (spot.helpSlot != null) doJob(spot.helpSlot);
+    } else if (id === "mycar") boardCars();
+    else if (spot.helpSlot != null) doJob(spot.helpSlot);
   }
 
   function enterShop(kind) {
@@ -419,23 +436,89 @@ export function createGame() {
     refreshHud();
   }
 
-  function useCage() {
-    if (!state.cage) {
-      ui.toast("还没有笼子。去大街上的鸟笼子店看看吧。");
+  function usePets() {
+    if (!state.pets.length) {
+      ui.toast("宠物角还空着。去大街上的宠物店，鱼、猫、狗、青蛙，还有好多小动物都能带回家。");
       return;
     }
-    if (state.homeBirds.length === 0) {
-      ui.toast("笼子空着。去游乐场轻轻抓一只好看的鸟吧。");
+    if (state.petFood <= 0) {
+      ui.toast("小动物也要吃饭。宠物店里有宠物粮。");
       return;
     }
-    if (state.birdFood <= 0) {
-      ui.toast("鸟也要吃饭。鸟笼子店会卖鸟食。");
-      return;
-    }
-    state.birdFood -= 1;
+    state.petFood -= 1;
+    state.birdFood = state.petFood;
     addHappy(8);
-    ui.toast("你给鸟喂了食。它们在家里唱歌。");
+    const shown = state.pets.slice(0, 3).map((pet) => `${pet.emoji || ""}${pet.name}`).join("、");
+    const more = state.pets.length > 3 ? `，还有 ${state.pets.length - 3} 只` : "";
+    ui.toast(`你喂了${shown}${more}。它们都来吃东西了。`);
     refreshHud();
+    saveApi.save();
+  }
+
+  function parkCars() {
+    const riders = carFormation(state.rideMode, player);
+    const byWho = Object.fromEntries(riders.map((car) => [car.who, car]));
+    if (byWho["哥哥"]) {
+      brother.x = byWho["哥哥"].x;
+      brother.y = byWho["哥哥"].y;
+      brother.scene = "street";
+    }
+    if (byWho["妈妈"]) {
+      mom.x = byWho["妈妈"].x;
+      mom.y = byWho["妈妈"].y;
+      mom.scene = "street";
+    }
+    if (byWho["爸爸"]) {
+      dad.x = byWho["爸爸"].x;
+      dad.y = byWho["爸爸"].y;
+      dad.scene = "street";
+    }
+  }
+
+  function boardCars() {
+    if (ui.isModalOpen()) return;
+    if (state.scene !== "street") {
+      ui.toast("先到大街上，再按 X。车停在路口。");
+      return;
+    }
+    if (state.driving) {
+      state.driving = false;
+      state.rideMode = "";
+      ui.toast("大家都下车了。");
+      saveApi.save();
+      return;
+    }
+    if (!state.carCount) {
+      ui.toast("还没有车。去大车店买。一辆车能坐 4 个人，也可以买 4 辆，每人一辆。");
+      return;
+    }
+    const need = CAR_LIMIT - state.carCount;
+    const separateNote = need > 0 ? `（还要再买 ${need} 辆）` : "";
+    ui.openModal(
+      "上车",
+      `<p>现在有 ${state.carCount} 辆车。一辆车可以坐下爸爸、妈妈、哥哥和你。要是有 4 辆，按下去就可以每人进不同的车。</p><div class="choices"><button class="choice" id="car-together">4 个人坐进同一辆车</button><button class="choice" id="car-separate" ${need > 0 ? "disabled" : ""}>每人进不同的车${separateNote}</button></div>`
+    );
+    document.getElementById("car-together").onclick = () => startRide("together");
+    const separateBtn = document.getElementById("car-separate");
+    if (separateBtn && need <= 0) separateBtn.onclick = () => startRide("separate");
+  }
+
+  function startRide(mode) {
+    state.driving = true;
+    state.rideMode = mode;
+    state.car = true;
+    brother.following = true;
+    brother.scene = "street";
+    mom.called = true;
+    mom.scene = "street";
+    dad.called = true;
+    dad.scene = "street";
+    parkCars();
+    ui.closeModal();
+    ui.toast(mode === "separate"
+      ? "爸爸、妈妈、哥哥和你，每人进了一辆不同的车。"
+      : "爸爸、妈妈、哥哥和你，都坐进同一辆车了。");
+    saveApi.save();
   }
 
   function sleep() {
@@ -641,20 +724,21 @@ export function createGame() {
   function catchBird() {
     const found = nearestBird();
     if (!found) return false;
-    if (!state.cage) {
-      ui.toast("鸟飞来飞去。要先买一个笼子，才能把鸟带回家。");
-      return true;
-    }
-    if (state.homeBirds.length >= 3) {
-      ui.toast("家里的笼子已经住满了。");
+    const caught = state.pets.filter((pet) => pet.id === "bird" && !pet.fromShop).length;
+    if (caught >= 4) {
+      ui.toast("游乐场的鸟已经带回家好几只了。宠物店里还有别的小动物。");
       return true;
     }
     const bird = state.wildBirds.splice(found.i, 1)[0];
-    state.homeBirds.push({ color: bird.color });
-    if (state.birdFood < 1) state.birdFood = 1;
+    state.pets.push({ id: "bird", name: "小鸟", emoji: "🐦", color: bird.color, fromShop: false });
+    if (state.petFood < 1) {
+      state.petFood = 1;
+      state.birdFood = 1;
+    }
     addHappy(10);
-    ui.toast("你轻轻把好看的鸟带回了家。记得喂食。");
+    ui.toast("你轻轻把好看的鸟带回了家。记得在宠物角喂食。");
     refreshHud();
+    saveApi.save();
     return true;
   }
 
@@ -715,30 +799,130 @@ export function createGame() {
         const grade = Number(btn.dataset.grade);
         ui.closeModal();
         go("classroom", 120, 430, { gradeFloor: grade });
-        startClass();
       };
     });
   }
 
-  function startClass() {
+  function syncLessonDay() {
+    if (state.lessonDay !== state.day) {
+      state.lessonDay = state.day;
+      state.lessonIndex = 0;
+      state.pendingLesson = "";
+    }
+  }
+
+  function talkTeacher() {
+    if (state.gradeFloor !== state.playerGrade) {
+      ui.toast("这间教室的老师在给别的年级上课。你回自己的班，坐下才开始。");
+      return;
+    }
+    syncLessonDay();
+    const list = lessonsForDay(state.day);
+    const lesson = list[state.lessonIndex];
+    if (!list.length) {
+      ui.toast(`今天是${weekdayName(state.day)}，老师说休息，不上课。`);
+      return;
+    }
+    if (!lesson) {
+      ui.toast("老师说：今天的课上完了。明天再坐到位子上来。");
+      return;
+    }
+    ui.openModal(
+      "老师",
+      `<p>进教室还没上课。你坐到自己的小桌子上，我才开始。</p><p>今天${scheduleLine(state.day)}。</p><p>现在第 ${state.lessonIndex + 1} 节是${lesson.name}。${lesson.who}</p>`
+    );
+  }
+
+  function tryStartHere(room) {
+    if (room === "classroom" && state.gradeFloor !== state.playerGrade) {
+      ui.toast("这不是你的班。回到自己那一层，坐到小桌子上，老师才开始上课。");
+      return;
+    }
+    syncLessonDay();
+    const list = lessonsForDay(state.day);
+    if (!list.length) {
+      ui.toast(`今天是${weekdayName(state.day)}，学校休息，不上课。`);
+      return;
+    }
+    if (state.lessonIndex >= list.length) {
+      ui.toast("今天的课都上完了。明天再来坐下上课。");
+      return;
+    }
+    const lesson = list[state.lessonIndex];
+    if (lesson.room !== room) {
+      if (room === "classroom") directToLesson(lesson);
+      else if (room === "schoolYard") ui.toast("马老师说：还没到体育课。先回自己班，坐到位子上看课表。");
+      else if (room === "dance") ui.toast("美老师说：还没到舞蹈课。先回自己班坐下。");
+      else ui.toast("音乐老师说：还没到音乐课。先回自己班坐下。");
+      return;
+    }
+    openLesson(lesson, list);
+  }
+
+  function directToLesson(lesson) {
+    state.pendingLesson = lesson.id;
+    const lead = lesson.id === "pe"
+      ? "这节是体育。马老师举着一面旗子，于老师和李老师也在，要带你们去操场。到了旗子旁边，坐下一样，课才开始。"
+      : lesson.id === "dance"
+        ? "这节是舞蹈。美老师在舞蹈教室。语文和数学留在自己班，舞蹈要走过去，坐到位子上才开始。"
+        : "这节是音乐。音乐老师在音乐教室。坐到音乐位子上，课才开始。";
+    const button = lesson.id === "pe" ? "跟着旗子去操场" : lesson.id === "dance" ? "去舞蹈教室" : "去音乐教室";
+    ui.openModal(`第 ${state.lessonIndex + 1} 节 · ${lesson.name}`, `<p>今天${scheduleLine(state.day)}。</p><p>${lead}</p><p>${lesson.who}</p><div class="choices"><button class="choice" id="lesson-go">${button}</button></div>`);
+    document.getElementById("lesson-go").onclick = () => {
+      ui.closeModal();
+      if (lesson.room === "dance") go("dance", 480, 400);
+      else if (lesson.room === "music") go("music", 480, 400);
+      else go("schoolYard", 480, 180);
+      saveApi.save();
+    };
+  }
+
+  function openLesson(lesson, list) {
+    const rules = state.lessonIndex === 0
+      ? "<p>语文和数学在自己班。舞蹈去舞蹈教室，音乐去音乐教室。体育课上，马老师举着旗子，和于老师、李老师一起带你们去操场。你一坐下，这节课就开始。表现好就有葵园币。语文、数学、体育，还有别的老师，有时还会给金属币。金属币特别值钱。</p>"
+      : "";
+    ui.openModal(
+      `第 ${state.lessonIndex + 1} 节 · ${lesson.name}`,
+      `${rules}<p>今天${scheduleLine(state.day)}。你坐下了，这节课开始。</p><p>${lesson.who}</p><p>${lesson.note}</p><div class="choices"><button class="choice" id="lesson-start">我坐好了，开始上课</button></div>`
+    );
+    const startBtn = document.getElementById("lesson-start");
+    startBtn.onclick = () => {
+      startBtn.onclick = null;
+      finishLesson(lesson, list);
+    };
+  }
+
+  function finishLesson(lesson, list) {
     state.classCount += 1;
+    state.lessonIndex += 1;
+    state.pendingLesson = "";
     addHappy(8);
     addEnergy(-6);
-    addLearn(4);
-    if (state.gradeFloor === state.playerGrade) {
-      ui.toast(`老师看见依月来了，马上开课。${MY_CLASSMATES.join("、")}都坐好了。`);
-      if (state.classCount % 3 === 0 && state.playerGrade < 10) {
+    addLearn(lesson.id === "pe" ? 2 : 4);
+    state.sunCoins += 1;
+    const gotMetal = state.classCount % 4 === 0;
+    if (gotMetal) state.metalCoins += 1;
+    const done = state.lessonIndex >= list.length;
+    const next = done ? null : list[state.lessonIndex];
+    let gradeNote = "";
+    if (done) {
+      state.schoolDays += 1;
+      if (state.schoolDays % 3 === 0 && state.playerGrade < 10) {
         state.playerGrade += 1;
-        ui.toast(`你升级了！下次你是${chineseGrade(state.playerGrade)}的学生。`);
+        gradeNote = `你升级了，下次是${chineseGrade(state.playerGrade)}。`;
       }
-    } else {
-      ui.toast(`老师看见有小朋友来听课，马上开课。你在${chineseGrade(state.gradeFloor)}坐下来。`);
+      advanceTime();
     }
-    if (state.wearing.clothes !== "school" && state.owned.clothes.includes("school")) {
-      ui.toast("穿上校服再来上课会更整齐哦。回家到衣柜那里可以换上。");
-    }
-    advanceTime();
+    const who = lesson.id === "pe"
+      ? "马老师、于老师和李老师一起上完了体育课。"
+      : `${lesson.teacher}上完了${lesson.name}课。`;
+    const uniform = state.wearing.clothes !== "school" && state.owned.clothes.includes("school")
+      ? "下次穿上校服会更整齐。"
+      : "";
+    ui.closeModal();
+    ui.toast(`${who}你表现好，得到 1 枚葵园币。${gotMetal ? "还有 1 枚金属币，特别值钱。" : ""}${next ? `下一节是${next.name}，再坐下。` : "今天的课上完了。"}${gradeNote}${uniform}`);
     refreshHud();
+    saveApi.save();
   }
 
   function talkFriend(index) {
@@ -875,17 +1059,48 @@ export function createGame() {
         { name: "花种子", cost: 6, buy: () => { state.seeds.flower += 1; } },
       ],
       bird: [
-        { name: "鸟笼子（带一点鸟食）", cost: 22, buy: () => { state.cage = true; state.birdFood += 2; }, skip: state.cage },
-        { name: "鸟食", cost: 6, buy: () => { state.birdFood += 2; } },
+        ...PETS.map((pet) => ({
+          name: `${pet.emoji} ${pet.name}`,
+          cost: pet.cost,
+          skip: state.pets.some((owned) => owned.id === pet.id && owned.fromShop),
+          buy: () => {
+            state.pets.push({ ...pet, fromShop: true });
+            state.cage = true;
+          },
+          toast: `${pet.emoji}${pet.name}跟着你回家了。到宠物角可以喂它。`,
+        })),
+        {
+          name: "🌾 宠物粮",
+          cost: 6,
+          buy: () => {
+            state.petFood += 2;
+            state.birdFood = state.petFood;
+          },
+        },
       ],
       car: [
-        { name: "家里的大车", cost: 80, buy: () => { state.car = true; }, skip: state.car },
+        {
+          name: state.carCount >= CAR_LIMIT
+            ? "车已经有 4 辆了"
+            : `买一辆车（现在 ${state.carCount} 辆，一辆能坐 4 人）`,
+          cost: 80,
+          skip: state.carCount >= CAR_LIMIT,
+          buy: () => {
+            state.carCount += 1;
+            state.car = true;
+          },
+          toast: () => (state.carCount >= CAR_LIMIT
+            ? "4 辆车都买好了。按 X，可以大家坐一辆，也可以每人进不同的车。"
+            : `现在有 ${state.carCount} 辆车。停在路口。到大街上按 X 上车。`),
+        },
       ],
     };
     const blurb = {
       food: "买回来的食物在书包里。回家到冰箱前面，可以按「放进冰箱」。",
       clothes: "衣服、小裙子、帽子、头花和鞋子都在这家店。买好会放进家里的衣柜。",
       book: "越厉害，能读的书就越好玩、越难。先买回家，再到小桌子或书桌前读。",
+      bird: "鱼、猫、狗、青蛙，还有好多小动物，都可以买回家。买了记得带宠物粮，回家到宠物角喂它们。",
+      car: "可以买不止一辆。一辆车能坐下爸爸、妈妈、哥哥和你。买满 4 辆，就可以每人进不同的车。到大街上按 X 选。",
     };
     const items = catalogs[state.shop]
       .map((item, i) => {
@@ -900,7 +1115,8 @@ export function createGame() {
         if (!pay(item.cost)) return;
         item.buy();
         ui.closeModal();
-        ui.toast(item.toast || `你买下了${item.name}。`);
+        const said = typeof item.toast === "function" ? item.toast() : item.toast;
+        ui.toast(said || `你买下了${item.name}。`);
         refreshHud();
         saveApi.save();
       };
@@ -961,11 +1177,15 @@ export function createGame() {
       player.walk *= 0.8;
     }
 
-    updateBrother(dt);
-    if (mom.called) followPlayer(mom, 0, dt);
-    else mom.walk *= 0.8;
-    if (dad.called) followPlayer(dad, 1, dt);
-    else dad.walk *= 0.8;
+    const riding = state.driving && state.scene === "street";
+    if (riding) parkCars();
+    else {
+      updateBrother(dt);
+      if (mom.called) followPlayer(mom, 0, dt);
+      else mom.walk *= 0.8;
+      if (dad.called) followPlayer(dad, 1, dt);
+      else dad.walk *= 0.8;
+    }
 
     if (state.scene === "park") {
       state.wildBirds.forEach((bird) => {
@@ -977,7 +1197,8 @@ export function createGame() {
     }
 
     const spot = nearestSpot();
-    if (nearPerson(mom)) ui.setHint("靠近了妈妈。空格听她说今天的事。按 M 打电话，她会过来。");
+    if (riding) ui.setHint("大家都在车上。再按 X 就下车。");
+    else if (nearPerson(mom)) ui.setHint("靠近了妈妈。空格听她说今天的事。按 M 打电话，她会过来。");
     else if (nearPerson(dad)) ui.setHint("靠近了爸爸。空格听他说今天的事。按 D 打电话，他会过来。");
     else if (nearPerson(brother) && !brother.following) ui.setHint("靠近了哥哥。按 P，他就会跟着你一起走。");
     else if (brother.following) ui.setHint("哥哥正跟着你。再按 P，他会停下来等你。");
@@ -991,8 +1212,12 @@ export function createGame() {
       const job = todayJobs()[spot.helpSlot];
       const label = job ? `${job.name}（${helpHardLabel(job.hard)}）` : spot.name;
       ui.setHint(`靠近了${label}。按空格或再点一下。`);
-    } else if (spot) ui.setHint(`靠近了${spot.name}。按空格或再点一下。`);
-    else if (state.scene === "park" && nearestBird()) ui.setHint("一只好看的鸟就在旁边。按空格试试抓住它。");
+    } else if (spot && spot.id === "desk") ui.setHint("这是你的位子。按空格坐下，老师才开始上课。");
+    else if (spot && spot.id === "flag") ui.setHint("马老师的旗子在这里。体育课走到旗子旁边，再按空格上课。");
+    else if (spot && spot.id === "cage") ui.setHint("这是宠物角。按空格给小动物喂食。");
+    else if (spot) ui.setHint(`靠近了${spot.name}。按空格或再点一下。`);
+    else if (state.scene === "park" && nearestBird()) ui.setHint("一只好看的鸟就在旁边。按空格试试抓住它。也可以去宠物店买别的小动物。");
+    else if (state.scene === "street" && state.carCount && !state.driving) ui.setHint("车停在路口。按 X：大家可以坐进同一辆车，也可以每人进不同的车。");
     else ui.setHint(currentScene().hint);
   }
 
@@ -1039,7 +1264,7 @@ export function createGame() {
     const p = canvasPoint(event);
     const scene = currentScene();
     const spot = scene.spots.find((s) => {
-      if (s.id === "mycar" && !state.car) return false;
+      if (s.id === "mycar" && !state.carCount) return false;
       return dist(p.x, p.y, s.x, s.y) < s.r + 18;
     });
     if (spot && dist(player.x, player.y, spot.x, spot.y) < spot.r + 16) {
@@ -1061,7 +1286,7 @@ export function createGame() {
 
   window.addEventListener("keydown", (event) => {
     const key = event.key.toLowerCase();
-    if (!["m", "d", "p"].includes(key)) keys.add(key);
+    if (!["m", "d", "p", "x"].includes(key)) keys.add(key);
     if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(key) || event.key === " ") {
       event.preventDefault();
     }
@@ -1084,6 +1309,10 @@ export function createGame() {
       event.preventDefault();
       if (!ui.isModalOpen()) callParent("爸爸");
     }
+    if (key === "x") {
+      event.preventDefault();
+      if (!ui.isModalOpen()) boardCars();
+    }
     if (event.key === "Escape") ui.closeModal();
     loop(performance.now());
   });
@@ -1095,9 +1324,13 @@ export function createGame() {
   function saveLine(save) {
     const s = save?.state;
     if (!s) return "";
+    const pets = Array.isArray(s.pets) ? s.pets.length : 0;
+    const cars = s.carCount || (s.car ? 1 : 0);
     const extras = [
-      s.cage ? "有鸟笼子" : "",
-      Array.isArray(s.homeBirds) && s.homeBirds.length ? `${s.homeBirds.length} 只鸟` : "",
+      pets ? `${pets} 只小动物` : "",
+      cars ? `${cars} 辆车` : "",
+      s.sunCoins ? `${s.sunCoins} 枚葵园币` : "",
+      s.metalCoins ? `${s.metalCoins} 枚金属币` : "",
     ].filter(Boolean);
     return `第 ${s.day || 1} 天，${s.gold ?? 0} 金币${extras.length ? `，${extras.join("，")}` : ""}`;
   }

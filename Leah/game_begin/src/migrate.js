@@ -1,6 +1,6 @@
 import { emptyFood, FOOD_ORDER, findWearable } from "./items.js";
 import { defaultBrother, defaultDad, defaultMom, defaultState } from "./world.js";
-import { HOME_LAYOUT } from "./content.js";
+import { CAR_LIMIT, HOME_LAYOUT } from "./content.js";
 
 const LEGACY_KEYS = new Set(["food", "clothes", "outfit"]);
 
@@ -93,6 +93,35 @@ function harden(state, incoming) {
   if (!Array.isArray(state.plants)) state.plants = [];
   if (!Array.isArray(state.homeBirds)) state.homeBirds = [];
   if (!Array.isArray(state.wildBirds)) state.wildBirds = [];
+  if (incoming.pets == null) {
+    state.pets = state.homeBirds.map((bird) => ({
+      id: "bird",
+      name: "小鸟",
+      emoji: "🐦",
+      color: bird.color || "#4d7fe8",
+      fromShop: false,
+    }));
+  }
+  if (!Array.isArray(state.pets)) state.pets = [];
+  if (incoming.petFood == null) state.petFood = Number(state.birdFood) || 0;
+  state.petFood = Math.max(0, Number(state.petFood) || 0);
+  state.birdFood = state.petFood;
+  if (incoming.carCount == null) state.carCount = state.car ? 1 : 0;
+  state.carCount = Math.max(0, Math.min(CAR_LIMIT, Number(state.carCount) || 0));
+  state.car = state.carCount > 0;
+  if (incoming.sunCoins == null) state.sunCoins = 0;
+  if (incoming.metalCoins == null) state.metalCoins = 0;
+  state.sunCoins = Math.max(0, Number(state.sunCoins) || 0);
+  state.metalCoins = Math.max(0, Number(state.metalCoins) || 0);
+  if (incoming.schoolDays == null) state.schoolDays = 0;
+  state.schoolDays = Math.max(0, Number(state.schoolDays) || 0);
+  if (incoming.lessonIndex == null) state.lessonIndex = 0;
+  if (incoming.lessonDay == null) state.lessonDay = 0;
+  state.lessonIndex = Math.max(0, Number(state.lessonIndex) || 0);
+  state.lessonDay = Math.max(0, Number(state.lessonDay) || 0);
+  if (!state.pendingLesson) state.pendingLesson = "";
+  if (state.driving && state.rideMode !== "separate" && state.rideMode !== "together") state.rideMode = "together";
+  if (!state.driving) state.rideMode = "";
   if (!state.helpedToday || typeof state.helpedToday !== "object") state.helpedToday = {};
   if (!state.day || state.day < 1) state.day = 1;
   if (state.gold == null) state.gold = 0;

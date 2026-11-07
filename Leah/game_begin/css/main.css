@@ -321,6 +321,17 @@ canvas {
   margin: 12px 0;
 }
 
+.shop-list {
+  max-height: min(420px, 48vh);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.modal-card {
+  max-height: min(640px, calc(100vh - 40px));
+  overflow: auto;
+}
+
 .choice,
 .shop-item,
 #modal-close {

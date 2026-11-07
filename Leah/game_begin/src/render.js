@@ -1,6 +1,17 @@
 import { CONFIG, chineseGrade, shopTitle } from "./config.js";
 import { clamp } from "./math.js";
-import { CLASSMATE_SEATS, DOOR_SIGNS, HOME_LAYOUT, INDOOR_DOORS, classmatesAt, jobsForDay } from "./content.js";
+import {
+  CLASSMATE_SEATS,
+  DOOR_SIGNS,
+  HOME_LAYOUT,
+  INDOOR_DOORS,
+  TEACHER_LOOKS,
+  carFormation,
+  classmatesAt,
+  jobsForDay,
+  nextLesson,
+  scheduleLine,
+} from "./content.js";
 import { playerLook } from "./items.js";
 import { plantAt } from "./world.js";
 
@@ -199,7 +210,29 @@ export function createRenderer(canvas, world, scenes) {
     ctx.fill();
   }
 
-  function drawCar(x, y, moving) {
+  function drawEmoji(x, y, emoji, size = 18) {
+    ctx.font = `${size}px Apple Color Emoji, Segoe UI Emoji, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(emoji, x, y);
+  }
+
+  function drawFlag(x, y) {
+    ctx.strokeStyle = "#8a5a32";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 36);
+    ctx.lineTo(x, y + 18);
+    ctx.stroke();
+    ctx.fillStyle = "#e0578b";
+    ctx.beginPath();
+    ctx.moveTo(x, y - 34);
+    ctx.lineTo(x + 26, y - 24);
+    ctx.lineTo(x, y - 14);
+    ctx.fill();
+    ctx.lineWidth = 1;
+  }
+
+  function drawCar(x, y, moving, label) {
     roundRect(x - 34, y - 14, 68, 28, 10, "#d94c4c");
     roundRect(x - 18, y - 24, 36, 16, 6, "#bfe9ff");
     ctx.fillStyle = "#2c2118";
@@ -207,7 +240,8 @@ export function createRenderer(canvas, world, scenes) {
     ctx.arc(x - 22, y + 14, 7, 0, Math.PI * 2);
     ctx.arc(x + 22, y + 14, 7, 0, Math.PI * 2);
     ctx.fill();
-    if (!moving) drawLabel(x, y - 28, "大车");
+    if (label) drawLabel(x, y - 28, label);
+    else if (!moving) drawLabel(x, y - 28, "车");
   }
 
   function drawHome() {
@@ -232,9 +266,13 @@ export function createRenderer(canvas, world, scenes) {
     drawLabel(L.turtle.x, 90, "乌龟");
     roundRect(70, 290, 210, 88, 16, "#e07a6a");
     drawLabel(L.sofa.x, 282, "沙发");
-    roundRect(L.cage.x - 50, 96, 100, 110, 12, "#c9a36b");
-    state.homeBirds.forEach((bird, i) => drawBird(L.cage.x - 20 + i * 18, 146, bird.color));
-    drawLabel(L.cage.x, 90, "鸟笼");
+    roundRect(L.cage.x - 58, 96, 116, 128, 12, "#f6e7c8");
+    (state.pets || []).slice(0, 12).forEach((pet, i) => {
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      drawEmoji(L.cage.x - 40 + col * 26, 128 + row * 28, pet.emoji || "🐾", 18);
+    });
+    drawLabel(L.cage.x, 90, state.pets?.length ? `宠物 ${state.pets.length}` : "宠物角");
 
     roundRect(370, 96, 244, 88, 12, "#e8d5b5");
     roundRect(L.coffee.x - 40, 104, 80, 62, 10, "#d9d3c7");
@@ -304,12 +342,17 @@ export function createRenderer(canvas, world, scenes) {
     drawHouse(550, 500, 180, 110, "#e07a6a", "#ffe4d6", 1, "食物店");
     drawHouse(790, 500, 180, 110, "#b56bdb", "#f3e5ff", 1, "衣服鞋子店");
     drawHouse(1030, 500, 180, 110, "#6aae6d", "#e5f6d6", 1, "种子店");
-    drawHouse(1270, 500, 180, 110, "#4d8fdb", "#dcebff", 1, "鸟笼店");
+    drawHouse(1270, 500, 180, 110, "#e7a04a", "#fff1d6", 1, "宠物店");
     drawHouse(50, 770, 240, 130, "#c45c4a", "#f8d7b0", 1, "我们的家");
     drawHouse(370, 780, 210, 120, "#e8a54b", "#fff0d2", 1, "帮助站");
     drawHouse(650, 780, 210, 120, "#7eb6e6", "#e4f4ff", 1, "诊所");
     drawHouse(880, 780, 230, 120, "#8a6a48", "#efe4c8", 1, "书店");
-    if (state.car && !state.driving) drawCar(318, 940, false);
+    if (!(state.driving && state.rideMode === "separate")) {
+      const parked = Math.max(0, state.carCount - (state.driving ? 1 : 0));
+      [{ x: 70, y: 715 }, { x: 150, y: 715 }, { x: 230, y: 715 }, { x: 310, y: 715 }]
+        .slice(0, parked)
+        .forEach((spot) => drawCar(spot.x, spot.y, false, "车"));
+    }
     drawLabel(250, 390, "往北：学校 · 操场 · 游乐场");
     for (let i = 0; i < 8; i += 1) {
       ctx.fillStyle = i % 2 ? "#f4f0e4" : "#d45d5d";
@@ -389,13 +432,18 @@ export function createRenderer(canvas, world, scenes) {
       clothes: "#f3e5ff",
       book: "#efe4c8",
       seed: "#e5f6d6",
-      bird: "#dcebff",
+      bird: "#fff1d6",
       car: "#f7e0c4",
     };
     ctx.fillStyle = palettes[world.state.shop] || "#fff6e8";
     ctx.fillRect(0, 0, 960, 540);
     roundRect(200, 80, 560, 200, 18, "#fff6e8");
-    drawPerson(480, 200, { hair: "#6b3a2a", shirt: "#c9894a", skirt: "#8a5a32", skin: "#f0c09a" }, "店员", 0);
+    drawPerson(480, 220, { hair: "#6b3a2a", shirt: "#c9894a", skirt: "#8a5a32", skin: "#f0c09a" }, "店员", 0);
+    if (world.state.shop === "bird") {
+      ["🐟", "🐱", "🐶", "🐸", "🐰", "🐹", "🐦", "🐢"].forEach((emoji, i) => {
+        drawEmoji(230 + i * 70, 150, emoji, 28);
+      });
+    }
     if (world.state.shop === "book") {
       roundRect(150, 200, 110, 70, 10, "#c9894a");
       ctx.fillStyle = "#fff6e8";
@@ -410,6 +458,7 @@ export function createRenderer(canvas, world, scenes) {
   }
 
   function drawSchoolYard() {
+    const { state } = world;
     ctx.fillStyle = "#7ecf7a";
     ctx.fillRect(0, 0, 960, 540);
     ctx.strokeStyle = "#f4f0e4";
@@ -421,7 +470,7 @@ export function createRenderer(canvas, world, scenes) {
     ctx.fillStyle = "#e0578b";
     for (let i = 0; i < 3; i += 1) {
       ctx.beginPath();
-      ctx.arc(480, 160 + i * 40, 10, 0, Math.PI * 2);
+      ctx.arc(480, 248 + i * 28, 10, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.strokeStyle = "white";
@@ -429,21 +478,40 @@ export function createRenderer(canvas, world, scenes) {
     ctx.arc(760, 230, 70, 0, Math.PI * 2);
     ctx.stroke();
     ctx.lineWidth = 1;
-    drawLabel(200, 110, "篮球");
-    drawLabel(480, 110, "跳绳");
-    drawLabel(760, 110, "足球");
+    drawLabel(200, 108, "篮球");
+    drawLabel(480, 220, "跳绳");
+    drawLabel(760, 140, "足球");
+    const lesson = nextLesson(state);
+    if (lesson && lesson.id === "pe") {
+      drawFlag(500, 108);
+      drawPerson(430, 132, TEACHER_LOOKS["马老师"], "马老师", 0);
+      drawPerson(560, 148, TEACHER_LOOKS["于老师"], "于老师", 0);
+      drawPerson(340, 150, TEACHER_LOOKS["李老师"], "李老师", 0);
+    }
   }
 
   function drawClassroom() {
     const { state, anim } = world;
     ctx.fillStyle = "#f3efe4";
     ctx.fillRect(0, 0, 960, 540);
-    roundRect(200, 40, 560, 80, 8, "#3f8f4a");
+    roundRect(160, 36, 640, 86, 8, "#3f8f4a");
     ctx.fillStyle = "white";
-    ctx.font = "20px PingFang SC, sans-serif";
+    ctx.font = "18px PingFang SC, sans-serif";
     ctx.textAlign = "center";
-    ctx.fillText(`${chineseGrade(state.gradeFloor)}  ·  第 ${state.gradeFloor <= 4 ? state.gradeFloor : state.gradeFloor - 4} 层`, 480, 88);
-    drawPerson(480, 140, { hair: "#3b2b22", shirt: "#355f96", skirt: "#243f6a", skin: "#e8b68a" }, "老师", 0);
+    const ownClass = state.gradeFloor === state.playerGrade;
+    const lesson = nextLesson(state);
+    ctx.fillText(`${chineseGrade(state.gradeFloor)}  ·  第 ${state.gradeFloor <= 4 ? state.gradeFloor : state.gradeFloor - 4} 层`, 480, 68);
+    ctx.font = "15px PingFang SC, sans-serif";
+    ctx.fillText(ownClass ? scheduleLine(state.day) : "这是别的年级", 480, 96);
+    if (ownClass && lesson && lesson.id === "pe") {
+      drawFlag(600, 130);
+      drawPerson(480, 168, TEACHER_LOOKS["马老师"], "马老师", 0);
+      drawPerson(640, 186, TEACHER_LOOKS["于老师"], "于老师", 0);
+      drawPerson(360, 186, TEACHER_LOOKS["李老师"], "李老师", 0);
+    } else {
+      const teacherName = ownClass && lesson ? lesson.teacher : "老师";
+      drawPerson(480, 168, TEACHER_LOOKS[teacherName] || TEACHER_LOOKS["老师"], teacherName, 0);
+    }
     [[300, 280], [470, 300], [640, 300], [300, 400], [470, 400], [640, 400]].forEach(([x, y]) => {
       roundRect(x - 28, y - 8, 56, 28, 6, "#e0c090");
     });
@@ -465,6 +533,33 @@ export function createRenderer(canvas, world, scenes) {
     ctx.fillStyle = "#355f96";
     ctx.textAlign = "center";
     ctx.fillText("厕所在这边", 860, 120);
+  }
+
+  function drawDance() {
+    ctx.fillStyle = "#ffe4ef";
+    ctx.fillRect(0, 0, 960, 540);
+    roundRect(70, 70, 820, 340, 16, "#fff6f8");
+    ctx.strokeStyle = "#c9844a";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(120, 150);
+    ctx.lineTo(840, 150);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    drawPerson(480, 240, TEACHER_LOOKS["美老师"], "美老师", 0);
+    drawLabel(480, 330, "坐在这里上课");
+  }
+
+  function drawMusic() {
+    ctx.fillStyle = "#f3e5ff";
+    ctx.fillRect(0, 0, 960, 540);
+    roundRect(70, 70, 820, 340, 16, "#faf4ff");
+    roundRect(160, 250, 220, 70, 10, "#3b2b22");
+    ctx.fillStyle = "#f4f0e4";
+    for (let i = 0; i < 8; i += 1) ctx.fillRect(176 + i * 24, 262, 14, 36);
+    drawPerson(620, 240, TEACHER_LOOKS["音乐老师"], "音乐老师", 0);
+    drawLabel(270, 236, "钢琴");
+    drawLabel(620, 320, "坐在这里上课");
   }
 
   function drawBath() {
@@ -490,6 +585,8 @@ export function createRenderer(canvas, world, scenes) {
     else if (state.scene === "shop") drawShop();
     else if (state.scene === "schoolYard") drawSchoolYard();
     else if (state.scene === "classroom") drawClassroom();
+    else if (state.scene === "dance") drawDance();
+    else if (state.scene === "music") drawMusic();
     else if (state.scene === "bath") drawBath();
 
     drawSceneDoors();
@@ -498,7 +595,8 @@ export function createRenderer(canvas, world, scenes) {
       state.wildBirds.forEach((bird) => drawBird(bird.x, bird.y, bird.color));
     }
 
-    if (brother.scene === state.scene) {
+    const riding = state.driving && state.scene === "street";
+    if (!riding && brother.scene === state.scene) {
       drawPerson(
         brother.x,
         brother.y,
@@ -507,15 +605,18 @@ export function createRenderer(canvas, world, scenes) {
         brother.walk * 0.35
       );
     }
-    if (mom.scene === state.scene) {
+    if (!riding && mom.scene === state.scene) {
       drawPerson(mom.x, mom.y, CONFIG.familyLooks["妈妈"], mom.called ? "妈妈（过来了）" : "妈妈", mom.walk * 0.35);
     }
-    if (dad.scene === state.scene) {
+    if (!riding && dad.scene === state.scene) {
       drawPerson(dad.x, dad.y, CONFIG.familyLooks["爸爸"], dad.called ? "爸爸（过来了）" : "爸爸", dad.walk * 0.35);
     }
     const bounce = player.walk * 0.35;
-    if (state.driving && state.scene === "street") drawCar(player.x, player.y, true);
-    else drawPerson(player.x, player.y, playerLook(state), CONFIG.playerName, bounce);
+    if (riding) {
+      carFormation(state.rideMode, player).forEach((car) => {
+        if (car.draw) drawCar(car.x, car.y, true, car.label);
+      });
+    } else drawPerson(player.x, player.y, playerLook(state), CONFIG.playerName, bounce);
 
     ctx.restore();
   }

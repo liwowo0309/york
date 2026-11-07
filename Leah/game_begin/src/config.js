@@ -2,7 +2,7 @@ export const CONFIG = {
   canvasWidth: 960,
   canvasHeight: 540,
   saveKey: "yiyue-home-save-v1",
-  saveVersion: 2,
+  saveVersion: 3,
   playerName: "依月",
   playerNameEn: "Leah",
   times: ["早上", "下午", "傍晚"],
@@ -17,7 +17,7 @@ export const CONFIG = {
     clothes: "衣服和鞋子店",
     book: "书店",
     seed: "种子店",
-    bird: "鸟笼子店",
+    bird: "宠物店",
     car: "大车店",
   },
   sceneTitles: {
@@ -28,6 +28,8 @@ export const CONFIG = {
     schoolYard: "学校大操场",
     bath: "学校厕所",
     bookshop: "书店",
+    dance: "舞蹈教室",
+    music: "音乐教室",
   },
   outfits: {
     home: { hair: "#f2b3c8", shirt: "#ee7aa0", skirt: "#f7c1d4" },

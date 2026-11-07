@@ -238,6 +238,162 @@ export function classmatesAt(gradeFloor, playerGrade) {
   return CLASSROOM_FRIENDS[gradeFloor] || CLASSROOM_FRIENDS[1];
 }
 
+export const PETS = [
+  { id: "fish", name: "小鱼", emoji: "🐟", cost: 12 },
+  { id: "goldfish", name: "金鱼", emoji: "🐠", cost: 14 },
+  { id: "cat", name: "小猫", emoji: "🐱", cost: 26 },
+  { id: "dog", name: "小狗", emoji: "🐶", cost: 26 },
+  { id: "frog", name: "青蛙", emoji: "🐸", cost: 14 },
+  { id: "rabbit", name: "小兔子", emoji: "🐰", cost: 18 },
+  { id: "hamster", name: "仓鼠", emoji: "🐹", cost: 16 },
+  { id: "bird", name: "小鸟", emoji: "🐦", cost: 14 },
+  { id: "parrot", name: "鹦鹉", emoji: "🦜", cost: 22 },
+  { id: "turtle", name: "小乌龟", emoji: "🐢", cost: 16 },
+  { id: "duck", name: "小鸭子", emoji: "🦆", cost: 16 },
+  { id: "chick", name: "小鸡", emoji: "🐤", cost: 12 },
+  { id: "snail", name: "蜗牛", emoji: "🐌", cost: 8 },
+  { id: "hedgehog", name: "小刺猬", emoji: "🦔", cost: 20 },
+  { id: "lizard", name: "小蜥蜴", emoji: "🦎", cost: 18 },
+  { id: "mouse", name: "小老鼠", emoji: "🐭", cost: 10 },
+  { id: "bee", name: "小蜜蜂", emoji: "🐝", cost: 10 },
+  { id: "butterfly", name: "蝴蝶", emoji: "🦋", cost: 10 },
+  { id: "crab", name: "小螃蟹", emoji: "🦀", cost: 16 },
+  { id: "octopus", name: "小章鱼", emoji: "🐙", cost: 20 },
+  { id: "owl", name: "小猫头鹰", emoji: "🦉", cost: 22 },
+  { id: "fox", name: "小狐狸", emoji: "🦊", cost: 28 },
+  { id: "panda", name: "小熊猫", emoji: "🐼", cost: 36 },
+  { id: "bear", name: "小熊", emoji: "🐻", cost: 30 },
+  { id: "penguin", name: "小企鹅", emoji: "🐧", cost: 28 },
+  { id: "pig", name: "小猪", emoji: "🐷", cost: 18 },
+  { id: "sheep", name: "小羊", emoji: "🐑", cost: 20 },
+  { id: "cow", name: "小牛", emoji: "🐄", cost: 24 },
+  { id: "horse", name: "小马", emoji: "🐴", cost: 24 },
+  { id: "monkey", name: "小猴子", emoji: "🐵", cost: 26 },
+  { id: "tiger", name: "小老虎", emoji: "🐯", cost: 32 },
+  { id: "lion", name: "小狮子", emoji: "🦁", cost: 32 },
+  { id: "elephant", name: "小象", emoji: "🐘", cost: 34 },
+  { id: "giraffe", name: "小长颈鹿", emoji: "🦒", cost: 34 },
+  { id: "koala", name: "考拉", emoji: "🐨", cost: 28 },
+  { id: "unicorn", name: "小独角兽", emoji: "🦄", cost: 40 },
+];
+
+export const CAR_LIMIT = 4;
+
+export const TEACHER_LOOKS = {
+  李老师: { hair: "#6b3a2a", shirt: "#d45d6b", skirt: "#a83d4d", skin: "#f0c09a" },
+  刘老师: { hair: "#3b2b22", shirt: "#6aa7e8", skirt: "#355f96", skin: "#f3c7a3" },
+  英语老师: { hair: "#5c3d2e", shirt: "#f0c14a", skirt: "#c9844a", skin: "#f0c09a" },
+  美老师: { hair: "#6b3a2a", shirt: "#ee7aa0", skirt: "#f7c1d4", skin: "#f3c7a3" },
+  音乐老师: { hair: "#4a2c55", shirt: "#b56bdb", skirt: "#e7c4ff", skin: "#f0c09a" },
+  马老师: { hair: "#2c2118", shirt: "#3cb89a", skirt: "#2a6b58", skin: "#e8b68a" },
+  于老师: { hair: "#5c3d2e", shirt: "#7eb6e6", skirt: "#355f96", skin: "#f0c09a" },
+  老师: { hair: "#6b3a2a", shirt: "#f4f7ff", skirt: "#3d6fd8", skin: "#f0c09a" },
+};
+
+const LESSONS = {
+  chinese: {
+    id: "chinese",
+    name: "语文",
+    room: "classroom",
+    teacher: "李老师",
+    who: "李老师来了。李老师是女老师。",
+    note: "语文在自己班里上。",
+  },
+  math: {
+    id: "math",
+    name: "数学",
+    room: "classroom",
+    teacher: "刘老师",
+    who: "刘老师来了。刘老师是女老师。",
+    note: "数学在自己班里上。",
+  },
+  english: {
+    id: "english",
+    name: "英语",
+    room: "classroom",
+    teacher: "英语老师",
+    who: "英语老师来了。",
+    note: "英语在自己班里上。",
+  },
+  dance: {
+    id: "dance",
+    name: "舞蹈",
+    room: "dance",
+    teacher: "美老师",
+    who: "美老师在舞蹈教室。",
+    note: "舞蹈要去学校专门的舞蹈教室。",
+  },
+  music: {
+    id: "music",
+    name: "音乐",
+    room: "music",
+    teacher: "音乐老师",
+    who: "音乐老师来了。音乐老师是女老师。",
+    note: "音乐要去学校专门的音乐教室。",
+  },
+  pe: {
+    id: "pe",
+    name: "体育",
+    room: "schoolYard",
+    teacher: "马老师",
+    who: "马老师是男老师，举着一面旗子。于老师和李老师也一起来。",
+    note: "跟着旗子去大操场。表现好，老师给葵园币。",
+  },
+};
+
+const WEEK_PLAN = [
+  ["chinese", "math", "english", "dance"],
+  ["math", "chinese", "pe"],
+  ["chinese", "math", "english", "music"],
+  ["chinese", "math", "english", "dance"],
+  ["chinese", "math", "english", "music"],
+  [],
+  [],
+];
+
+export function weekdayName(day) {
+  return ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][(Math.max(1, day) - 1) % 7];
+}
+
+export function lessonsForDay(day) {
+  const plan = WEEK_PLAN[(Math.max(1, day) - 1) % 7];
+  return plan.map((id) => LESSONS[id]);
+}
+
+export function nextLesson(state) {
+  const list = lessonsForDay(state.day);
+  const index = state.lessonDay === state.day ? state.lessonIndex : 0;
+  return list[index] || null;
+}
+
+export function scheduleLine(day) {
+  const list = lessonsForDay(day);
+  if (!list.length) return `${weekdayName(day)}休息，不上课`;
+  return `${weekdayName(day)}：${list.map((lesson) => lesson.name).join("、")}`;
+}
+
+export function carFormation(rideMode, player) {
+  const clampCar = (x, y) => ({
+    x: Math.max(48, Math.min(1552, x)),
+    y: Math.max(48, Math.min(952, y)),
+  });
+  if (rideMode !== "separate") {
+    const here = clampCar(player.x, player.y);
+    return ["依月", "哥哥", "妈妈", "爸爸"].map((who) => ({
+      ...here,
+      who,
+      label: "一家四口",
+      draw: who === "依月",
+    }));
+  }
+  return [
+    { who: "依月", label: "依月", x: player.x, y: player.y },
+    { who: "哥哥", label: "哥哥", x: player.x - 90, y: player.y + 54 },
+    { who: "妈妈", label: "妈妈", x: player.x + 90, y: player.y + 54 },
+    { who: "爸爸", label: "爸爸", x: player.x, y: player.y + 104 },
+  ].map((car) => ({ ...car, ...clampCar(car.x, car.y), draw: true }));
+}
+
 export const DOOR_SIGNS = {
   door: "出门去大街",
   homeDoor: "进门回家",
@@ -260,7 +416,11 @@ export const DOOR_SIGNS = {
   clothesshop: "进衣服和鞋子店",
   bookstore: "进书店",
   seedshop: "进种子店",
-  birdshop: "进鸟笼店",
+  birdshop: "进宠物店",
+  danceDoor: "进舞蹈教室",
+  musicDoor: "进音乐教室",
+  leaveDance: "出门回操场",
+  leaveMusic: "出门回操场",
   work: "进帮助站",
   clinic: "进诊所",
 };
@@ -268,6 +428,7 @@ export const DOOR_SIGNS = {
 export const INDOOR_DOORS = [
   "door", "leaveWork", "leaveShop", "leavePark", "leaveClass",
   "leaveBath", "leaveYard", "bathDoor", "toA", "toB",
+  "danceDoor", "musicDoor", "leaveDance", "leaveMusic",
 ];
 
 export const SHOP_STREET_POS = {
@@ -345,7 +506,7 @@ export function createScenes() {
         { id: "water", x: HOME_LAYOUT.water.x, y: HOME_LAYOUT.water.y, r: 40, name: "水桶" },
         { id: "study", x: HOME_LAYOUT.study.x, y: HOME_LAYOUT.study.y, r: 44, name: "书桌" },
         { id: "wardrobe", x: HOME_LAYOUT.wardrobe.x, y: HOME_LAYOUT.wardrobe.y, r: 42, name: "衣柜" },
-        { id: "cage", x: HOME_LAYOUT.cage.x, y: HOME_LAYOUT.cage.y, r: 46, name: "鸟笼子" },
+        { id: "cage", x: HOME_LAYOUT.cage.x, y: HOME_LAYOUT.cage.y, r: 46, name: "宠物角" },
         { id: "bed", x: HOME_LAYOUT.bed.x, y: HOME_LAYOUT.bed.y, r: 50, name: "依月的床" },
         { id: "door", x: HOME_LAYOUT.door.x, y: HOME_LAYOUT.door.y, r: 62, name: "出门去大街" },
         { id: "mom", x: HOME_LAYOUT.mom.x, y: HOME_LAYOUT.mom.y, r: 36, name: "妈妈", npc: "妈妈" },
@@ -368,12 +529,12 @@ export function createScenes() {
         { id: "foodshop", x: 640, y: 660, r: 50, name: "食物店的门" },
         { id: "clothesshop", x: 880, y: 660, r: 50, name: "衣服店的门" },
         { id: "seedshop", x: 1120, y: 660, r: 50, name: "种子店的门" },
-        { id: "birdshop", x: 1360, y: 660, r: 50, name: "鸟笼子店的门" },
+        { id: "birdshop", x: 1360, y: 660, r: 50, name: "宠物店的门" },
         { id: "homeDoor", x: 170, y: 948, r: 56, name: "回家的门" },
         { id: "work", x: 475, y: 948, r: 56, name: "帮助站的门" },
         { id: "clinic", x: 755, y: 948, r: 50, name: "诊所的门" },
         { id: "bookstore", x: 995, y: 948, r: 50, name: "书店的门" },
-        { id: "mycar", x: 318, y: 940, r: 42, name: "家里的大车" },
+        { id: "mycar", x: 190, y: 715, r: 64, name: "家里的车" },
       ],
     },
     park: {
@@ -440,7 +601,7 @@ export function createScenes() {
     schoolYard: {
       w: 960,
       h: 540,
-      hint: "下面有三扇门：4层教学楼、6层教学楼，还有回大街。",
+      hint: "体育课看马老师的旗子。舞蹈教室和音乐教室在操场这边。下面的门回教学楼或大街。",
       walls: [
         { x: 0, y: 0, w: 960, h: 24 },
         { x: 0, y: 516, w: 960, h: 24 },
@@ -449,8 +610,11 @@ export function createScenes() {
       ],
       spots: [
         { id: "basketball", x: 200, y: 240, r: 50, name: "篮球场" },
-        { id: "rope", x: 480, y: 230, r: 46, name: "跳绳的地方" },
+        { id: "rope", x: 480, y: 250, r: 46, name: "跳绳的地方" },
         { id: "soccer", x: 760, y: 260, r: 54, name: "足球场" },
+        { id: "flag", x: 480, y: 130, r: 40, name: "马老师的旗子" },
+        { id: "danceDoor", x: 300, y: 390, r: 46, name: "舞蹈教室的门" },
+        { id: "musicDoor", x: 660, y: 390, r: 46, name: "音乐教室的门" },
         { id: "toA", x: 160, y: 455, r: 56, name: "4层教学楼的门" },
         { id: "toB", x: 480, y: 455, r: 56, name: "6层教学楼的门" },
         { id: "leaveYard", x: 800, y: 455, r: 56, name: "出门回大街" },
@@ -459,7 +623,7 @@ export function createScenes() {
     classroom: {
       w: 960,
       h: 540,
-      hint: "你一进教室，老师就会开课。左边下面是出门去操场。右边可以去厕所。",
+      hint: "先坐到自己的小桌子上，老师才开始上课。进门还不算上课。",
       walls: [
         { x: 0, y: 0, w: 960, h: 30 },
         { x: 0, y: 510, w: 960, h: 30 },
@@ -492,6 +656,36 @@ export function createScenes() {
         { id: "sink", x: 300, y: 240, r: 44, name: "洗手台" },
         { id: "stall", x: 620, y: 250, r: 46, name: "小隔间" },
         { id: "leaveBath", x: 480, y: 455, r: 62, name: "出门回教室" },
+      ],
+    },
+    dance: {
+      w: 960,
+      h: 540,
+      hint: "美老师在舞蹈教室。坐到位子上，这节舞蹈课才开始。下面的门回操场。",
+      walls: [
+        { x: 0, y: 0, w: 960, h: 30 },
+        { x: 0, y: 510, w: 960, h: 30 },
+        { x: 0, y: 0, w: 18, h: 540 },
+        { x: 942, y: 0, w: 18, h: 540 },
+      ],
+      spots: [
+        { id: "danceSeat", x: 480, y: 300, r: 48, name: "舞蹈位子" },
+        { id: "leaveDance", x: 480, y: 455, r: 62, name: "出门回操场" },
+      ],
+    },
+    music: {
+      w: 960,
+      h: 540,
+      hint: "音乐老师在音乐教室。坐到位子上，这节音乐课才开始。下面的门回操场。",
+      walls: [
+        { x: 0, y: 0, w: 960, h: 30 },
+        { x: 0, y: 510, w: 960, h: 30 },
+        { x: 0, y: 0, w: 18, h: 540 },
+        { x: 942, y: 0, w: 18, h: 540 },
+      ],
+      spots: [
+        { id: "musicSeat", x: 480, y: 300, r: 48, name: "音乐位子" },
+        { id: "leaveMusic", x: 480, y: 455, r: 62, name: "出门回操场" },
       ],
     },
   };

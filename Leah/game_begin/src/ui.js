@@ -46,10 +46,12 @@ export function createUI() {
     bagEl.textContent = text;
   }
 
-  function refreshHud({ sceneName, dayLabel, gold, health, energy, happy, learn, bag }) {
+  function refreshHud({ sceneName, dayLabel, gold, sunCoins, metalCoins, health, energy, happy, learn, bag }) {
     document.getElementById("scene-name").textContent = sceneName;
     document.getElementById("day-label").textContent = dayLabel;
     document.getElementById("stat-gold").textContent = gold;
+    document.getElementById("stat-sun").textContent = sunCoins ?? 0;
+    document.getElementById("stat-metal").textContent = metalCoins ?? 0;
     document.getElementById("stat-health").textContent = health;
     document.getElementById("stat-energy").textContent = energy;
     document.getElementById("stat-happy").textContent = happy;
